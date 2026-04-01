@@ -167,7 +167,6 @@ def get_qa_suggestions(species: str):
     return {"suggestions": suggestions}
 
 # ========== 数据上报 API ==========
-# ========== 数据上报 API ==========
 @app.post("/api/record/location")
 def record_location(record: LocationRecord):
     """上报新的物种位置记录"""

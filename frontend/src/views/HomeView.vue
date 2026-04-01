@@ -23,6 +23,24 @@
           <div class="sidebar">
             <div class="control-panel">
               <h3>🌍 分布识别分析</h3>
+              <div class="basemap-selector">
+                <label>选择底图：</label>
+                <select v-model="selectedBasemap" @change="changeBasemap" class="basemap-select">
+                  <option value="osm">OpenStreetMap</option>
+                  <option value="esri">ESRI 卫星</option>
+                  <option value="gaode_satellite">高德卫星影像</option>
+                  <option value="gaode_satellite_annotated">高德卫星影像(带标注)</option>
+                </select>
+              </div>
+              <div class="layer-selector">
+                <label>选择图层：</label>
+                <select v-model="selectedLayer" @change="changeLayer" class="layer-select">
+                  <option value="points">散点图</option>
+                  <option value="heatmap">空间热力图</option>
+                  <option value="province">省级填色图</option>
+                  <option value="maxent">MaxEnt 适生区预测</option>
+                </select>
+              </div>
               <div class="species-selector">
                 <label>选择物种：</label>
                 <select v-model="selectedSpecies" @change="onSpeciesChange" class="species-select">
@@ -219,6 +237,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.heat' // 需要安装 leaflet.heat 插件
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -229,9 +248,15 @@ const isLoading = ref(false)
 
 // =============== Tab 1: 分布分析 ===============
 const selectedSpecies = ref('')
+const selectedBasemap = ref('osm')
+const selectedLayer = ref('points')
 const currentLocations = ref([])
 let map = null
 let markersLayer = null
+let tileLayer = null
+let heatLayer = null
+let provinceLayer = null
+let maxentLayer = null
 
 // =============== Tab 2: 知识问答 ===============
 const chatMessages = ref([
@@ -314,18 +339,134 @@ const initMap = () => {
   if (map) return
   
   map = L.map('map').setView([35, 105], 4)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 18
-  }).addTo(map)
-  
   markersLayer = L.layerGroup().addTo(map)
+  changeBasemap()
+  changeLayer()
+}
+
+const changeBasemap = () => {
+  if (tileLayer) {
+    map.removeLayer(tileLayer)
+  }
+  if (selectedBasemap.value === 'osm') {
+    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(map)
+  } else if (selectedBasemap.value === 'esri') {
+    tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+      maxZoom: 18
+    }).addTo(map)
+  } else if (selectedBasemap.value === 'gaode_satellite') {
+    tileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+      attribution: 'Tiles &copy; 高德地图 AMap',
+      maxZoom: 18
+    }).addTo(map)
+  } else if (selectedBasemap.value === 'gaode_satellite_annotated') {
+    tileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+      attribution: 'Tiles &copy; 高德地图 AMap',
+      maxZoom: 18
+    }).addTo(map)
+  }
+}
+
+const changeLayer = async () => {
+  // 移除现有图层
+  if (markersLayer) map.removeLayer(markersLayer)
+  if (heatLayer) map.removeLayer(heatLayer)
+  if (provinceLayer) map.removeLayer(provinceLayer)
+  if (maxentLayer) map.removeLayer(maxentLayer)
+
+  if (selectedLayer.value === 'points') {
+    markersLayer = L.layerGroup().addTo(map)
+    updatePoints()
+  } else if (selectedLayer.value === 'heatmap') {
+    await loadHeatmapData()
+  } else if (selectedLayer.value === 'province') {
+    await loadProvinceData()
+  } else if (selectedLayer.value === 'maxent') {
+    await loadMaxentData()
+  }
+}
+
+const updatePoints = () => {
+  if (!markersLayer) return
+  markersLayer.clearLayers()
+  currentLocations.value.forEach(loc => {
+    if (loc.latitude && loc.longitude) {
+      L.circleMarker([loc.latitude, loc.longitude], {
+        radius: 5,
+        fillColor: '#ff6b6b',
+        color: '#d63031',
+        weight: 2,
+        opacity: 0.7,
+        fillOpacity: 0.6
+      }).addTo(markersLayer).bindPopup(loc.location_name || `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`)
+    }
+  })
+}
+
+const loadHeatmapData = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/heatmap/${encodeURIComponent(selectedSpecies.value || 'all')}`)
+    const data = await response.json()
+    const points = data.points || []
+    heatLayer = L.heatLayer(points, { radius: 25 }).addTo(map)
+  } catch (error) {
+    console.error('加载热力图数据失败:', error)
+  }
+}
+
+const loadProvinceData = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/province-data/${encodeURIComponent(selectedSpecies.value || 'all')}`)
+    const data = await response.json()
+    const geojson = data.geojson
+    provinceLayer = L.geoJSON(geojson, {
+      style: (feature) => ({
+        fillColor: getColor(feature.properties.count),
+        weight: 2,
+        opacity: 1,
+        color: 'white',
+        dashArray: '3',
+        fillOpacity: 0.7
+      }),
+      onEachFeature: (feature, layer) => {
+        layer.bindPopup(`${feature.properties.name}: ${feature.properties.count} 记录`)
+      }
+    }).addTo(map)
+  } catch (error) {
+    console.error('加载省级数据失败:', error)
+  }
+}
+
+const loadMaxentData = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/maxent-image/${encodeURIComponent(selectedSpecies.value)}`)
+    const data = await response.json()
+    const imageUrl = data.imageUrl
+    const bounds = data.bounds // [[lat1, lng1], [lat2, lng2]]
+    maxentLayer = L.imageOverlay(imageUrl, bounds, { opacity: 0.6 }).addTo(map)
+  } catch (error) {
+    console.error('加载MaxEnt数据失败:', error)
+  }
+}
+
+const getColor = (d) => {
+  return d > 100 ? '#800026' :
+         d > 50  ? '#BD0026' :
+         d > 20  ? '#E31A1C' :
+         d > 10  ? '#FC4E2A' :
+         d > 5   ? '#FD8D3C' :
+         d > 0   ? '#FEB24C' :
+                   '#FFEDA0'
 }
 
 const onSpeciesChange = async () => {
   if (!selectedSpecies.value) {
     currentLocations.value = []
-    markersLayer?.clearLayers()
+    changeLayer()
     return
   }
 
@@ -333,20 +474,7 @@ const onSpeciesChange = async () => {
     const response = await fetch(`${API_BASE}/locations/${encodeURIComponent(selectedSpecies.value)}`)
     const data = await response.json()
     currentLocations.value = data.locations || []
-    
-    markersLayer?.clearLayers()
-    currentLocations.value.forEach(loc => {
-      if (loc.latitude && loc.longitude) {
-        L.circleMarker([loc.latitude, loc.longitude], {
-          radius: 5,
-          fillColor: '#ff6b6b',
-          color: '#d63031',
-          weight: 2,
-          opacity: 0.7,
-          fillOpacity: 0.6
-        }).addTo(markersLayer).bindPopup(loc.location_name || `${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}`)
-      }
-    })
+    changeLayer()
   } catch (error) {
     console.error('加载位置失败:', error)
   }
@@ -566,6 +694,36 @@ const resetForm = () => {
   margin: 0 0 20px 0;
   color: #333;
   font-size: 1.2em;
+}
+
+.basemap-selector label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #666;
+}
+
+.basemap-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.layer-selector label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #666;
+}
+
+.layer-select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95em;
 }
 
 .species-selector label {
