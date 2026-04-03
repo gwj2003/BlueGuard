@@ -179,7 +179,7 @@ os.environ["OPENAI_API_BASE"] = "https://api.deepseek.com"
 
 ### 数据库连接
 
-编辑 `backend/main.py` 中的 Neo4j 配置：
+编辑 `backend/graph_chain.py` 中的 Neo4j 配置：
 ```python
 DATABASE_URL = "bolt://localhost:7687"
 DB_USER = "neo4j"

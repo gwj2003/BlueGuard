@@ -1,10 +1,10 @@
-<<<<<<< HEAD
-=======
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from graph_chain import get_chain
+import geopandas as gpd
+from shapely.geometry import Point
 import pandas as pd
 import csv
 import os
@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from functools import lru_cache  # 新增：用于内存缓存
+import time
 
 # 模型定义
 class QuestionRequest(BaseModel):
@@ -76,17 +78,25 @@ def get_species_info(species: str):
         return {"info": "暂无知识库数据", "cypher": ""}
 
 # ========== 地理位置相关 API ==========
+# 新增缓存读取函数：最多缓存最近查询的 20 个物种文件数据
+@lru_cache(maxsize=20)
+def load_species_data(file_path: str):
+    if os.path.exists(file_path):
+        return pd.read_csv(file_path)
+    return None
+
 @app.get("/api/locations/{species}")
 def get_locations(species: str):
-    """获取物种分布位置"""
+    """获取物种分布位置（使用 LRU Cache 优化 I/O）"""
     try:
-        # 首先尝试从 GBIF 结果加载
         gbif_file = os.path.join(DATA_DIR, "gbif_results", f"{species}.csv")
         locations = []
         
-        if os.path.exists(gbif_file):
+        # 使用缓存读取数据，避免每次都读硬盘
+        df = load_species_data(gbif_file)
+        
+        if df is not None:
             try:
-                df = pd.read_csv(gbif_file)
                 # 处理不同的列名变体
                 lat_cols = ['decimalLatitude', 'latitude', 'lat']
                 lon_cols = ['decimalLongitude', 'longitude', 'lon', 'lng']
@@ -108,7 +118,7 @@ def get_locations(species: str):
                         except (ValueError, TypeError):
                             continue
             except Exception as e:
-                print(f"Error reading GBIF file: {e}")
+                print(f"Error parsing dataframe: {e}")
         
         # 限制返回数量
         return {"locations": locations[:1000]}
@@ -162,19 +172,52 @@ def get_heatmap(species: str):
         lat = loc.get("latitude")
         lon = loc.get("longitude")
         if lat is not None and lon is not None:
-            points.append([lat, lon, 0.5])
+            points.append([lat, lon, 1.0])
     return {"points": points}
+
+# 缓存 GeoDataFrame，加速运算
+china_gdf = None
+def get_china_gdf():
+    global china_gdf
+    if china_gdf is None and china_geojson:
+        china_gdf = gpd.GeoDataFrame.from_features(china_geojson["features"])
+        china_gdf.set_crs(epsg=4326, inplace=True)
+    return china_gdf
 
 @app.get("/api/province-data/{species}")
 def get_province_data(species: str):
     if not china_geojson:
         raise HTTPException(status_code=500, detail="中国省界 GeoJSON 尚未加载")
-    dist = get_distribution_by_province(species).get("distribution", {})
+        
+    locations = get_locations(species).get("locations", [])
+    
+    # ==== 核心修复：基于经纬度的空间位置精确判定 ====
+    dist = {}
+    gdf_map = get_china_gdf()
+    
+    if gdf_map is not None and locations:
+        df = pd.DataFrame(locations)
+        # 确保有坐标才能运算
+        if not df.empty and 'longitude' in df.columns and 'latitude' in df.columns:
+            geometry = [Point(xy) for xy in zip(df['longitude'], df['latitude'])]
+            points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
+            
+            # 空间连接：判断点落入哪个省份多边形
+            joined = gpd.sjoin(points_gdf, gdf_map, how="inner", predicate='within')
+            
+            # 统计各省份出现的频次
+            name_col = 'name' if 'name' in joined.columns else 'NAME'
+            if name_col in joined.columns:
+                dist = joined[name_col].value_counts().to_dict()
+
+    # ==== 组装包含统计结果的 GeoJSON ====
     features = []
     for feat in china_geojson.get("features", []):
         props = dict(feat.get("properties", {}))
         province_name = props.get("name") or props.get("NAME") or props.get("fullname")
+        # 直接使用空间统计的结果
         count = dist.get(province_name, 0)
+        
         new_feat = {
             "type": "Feature",
             "geometry": feat.get("geometry"),
@@ -185,6 +228,7 @@ def get_province_data(species: str):
             }
         }
         features.append(new_feat)
+        
     return {"geojson": {"type": "FeatureCollection", "features": features}}
 
 @app.get("/api/maxent-image/{species}")
@@ -220,6 +264,7 @@ def get_maxent_image(species: str):
 @app.get("/api/geocode")
 def geocode(address: str):
     try:
+        time.sleep(1)  # 【安全保护】强制休眠 1 秒，严格遵守 OSM API 并发限制政策
         url = "https://nominatim.openstreetmap.org/search"
         params = {"q": address, "format": "json", "limit": 1}
         r = requests.get(url, params=params, headers={"User-Agent": "aquatic-species-platform"}, timeout=15)
@@ -241,6 +286,7 @@ def geocode(address: str):
 @app.get("/api/reverse-geocode")
 def reverse_geocode(lat: float, lon: float):
     try:
+        time.sleep(1)  # 【安全保护】强制休眠 1 秒，严格遵守 OSM API 并发限制政策
         url = "https://nominatim.openstreetmap.org/reverse"
         params = {"lat": lat, "lon": lon, "format": "json"}
         r = requests.get(url, params=params, headers={"User-Agent": "aquatic-species-platform"}, timeout=15)
@@ -337,4 +383,3 @@ def get_all_records():
 def health_check():
     """健康检查"""
     return {"status": "ok"}
->>>>>>> 95badd0 (全部重写)

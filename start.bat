@@ -22,14 +22,14 @@ if errorlevel 1 (
 
 REM Start backend in a new window
 echo Starting backend...
-start "Backend Server" cmd /k "cd backend && pip install -r requirements.txt >nul 2>&1 && uvicorn main:app --reload --port 8000"
+start "Backend Server" cmd /k "cd backend && pip install -r requirements.txt && uvicorn main:app --reload --port 8000"
 
 REM Wait for backend to start
 timeout /t 3 /nobreak
 
 REM Start frontend in a new window
 echo Starting frontend...
-start "Frontend Server" cmd /k "cd frontend && npm install >nul 2>&1 && npm run dev"
+start "Frontend Server" cmd /k "cd frontend && npm install && npm run dev"
 
 echo.
 echo Backend: http://localhost:8000

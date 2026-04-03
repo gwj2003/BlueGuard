@@ -257,7 +257,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat' // 需要安装 leaflet.heat 插件
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 // =============== 全局状态 ===============
 const activeTab = ref(0)
@@ -377,26 +377,35 @@ const changeBasemap = () => {
   if (tileLayer) {
     map.removeLayer(tileLayer)
   }
+
+  // 【关键技巧】使用 LayerGroup 打包底图，方便整体添加和移除
+  tileLayer = L.layerGroup().addTo(map)
+
   if (selectedBasemap.value === 'osm') {
-    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 18
-    }).addTo(map)
+    }).addTo(tileLayer)
   } else if (selectedBasemap.value === 'esri') {
-    tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Source: Esri...',
       maxZoom: 18
-    }).addTo(map)
+    }).addTo(tileLayer)
   } else if (selectedBasemap.value === 'gaode_satellite') {
-    tileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
       attribution: 'Tiles &copy; 高德地图 AMap',
       maxZoom: 18
-    }).addTo(map)
+    }).addTo(tileLayer)
   } else if (selectedBasemap.value === 'gaode_satellite_annotated') {
-    tileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+    // 【核心修复】先铺底部的实景图 (style=6)，再盖上透明标注层 (style=8)
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
       attribution: 'Tiles &copy; 高德地图 AMap',
       maxZoom: 18
-    }).addTo(map)
+    }).addTo(tileLayer)
+    
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+      maxZoom: 18
+    }).addTo(tileLayer)
   }
 }
 
@@ -445,7 +454,19 @@ const loadHeatmapData = async () => {
       console.warn('热力图数据为空')
       return
     }
-    heatLayer = L.heatLayer(points, { radius: 25 }).addTo(map)
+    heatLayer = L.heatLayer(points, { 
+      radius: 20,       // 稍微缩小影响半径，让热力中心更聚拢
+      blur: 15,         // 降低模糊度（默认15），让边缘更清晰锐利
+      maxZoom: 10,      // 根据地图缩放自动调整热力，数值越大越容易变红
+      max: 1.0,         // 设置最高热力值为1.0
+      gradient: {       // 自定义高对比度色带
+        0.2: '#0000ff', // 蓝 (低密度)
+        0.4: '#00ffff', // 青
+        0.6: '#00ff00', // 绿
+        0.8: '#ffff00', // 黄
+        1.0: '#ff0000'  // 红 (高密度中心)
+      }
+    }).addTo(map)
     const latLngs = points.map((p) => [p[0], p[1]])
     map.fitBounds(L.latLngBounds(latLngs))
   } catch (error) {
@@ -459,14 +480,19 @@ const loadProvinceData = async () => {
     const data = await response.json()
     const geojson = data.geojson
     provinceLayer = L.geoJSON(geojson, {
-      style: (feature) => ({
-        fillColor: getColor(feature.properties.count),
-        weight: 2,
-        opacity: 1,
-        color: 'white',
-        dashArray: '3',
-        fillOpacity: 0.7
-      }),
+      style: (feature) => {
+        const count = feature.properties.count;
+        return {
+          // 核心视觉优化：有数据的用鲜艳渐变色，没数据的用极浅的灰色
+          fillColor: count > 0 ? getColor(count) : '#f4f4f4',
+          weight: 1,
+          opacity: 1,
+          color: count > 0 ? 'white' : '#ddd', // 没数据的边界线变淡
+          dashArray: '3',
+          // 有数据的加深不透明度，无数据的变半透明
+          fillOpacity: count > 0 ? 0.8 : 0.3
+        }
+      },
       onEachFeature: (feature, layer) => {
         layer.bindPopup(`${feature.properties.name}: ${feature.properties.count} 记录`)
       }
@@ -498,28 +524,41 @@ const loadMaxentData = async () => {
 
 const initReportMap = () => {
   if (reportMap) return
-  reportMap = L.map('report-map').setView([31.2304, 121.4737], 5)
+  reportMap = L.map('report-map').setView([35.0, 105.0], 4)
 
   changeReportBasemap()
 
+  let debounceTimer = null // 声明防抖定时器变量
+
   reportMap.on('click', async (e) => {
     const { lat, lng } = e.latlng
+    // 1. 立即更新界面的经纬度并打点（无需等待）
     reportForm.value.latitude = parseFloat(lat.toFixed(6))
     reportForm.value.longitude = parseFloat(lng.toFixed(6))
-    reportForm.value.location_name = `经纬度：${reportForm.value.longitude}, ${reportForm.value.latitude}`
+    reportForm.value.location_name = `经纬度解析中... (${reportForm.value.longitude}, ${reportForm.value.latitude})`
     setReportMarker(reportForm.value.latitude, reportForm.value.longitude)
 
-    try {
-      const r = await fetch(`${API_BASE}/reverse-geocode?lat=${reportForm.value.latitude}&lon=${reportForm.value.longitude}`)
-      const json = await r.json()
-      if (json.address) {
-        reportForm.value.location_name = json.address
-      }
-    } catch (err) {
-      console.error('逆向地理编码失败', err)
-      // 保持经纬度显示，可视为无地址情况
-      reportForm.value.location_name = `经纬度：${reportForm.value.longitude}, ${reportForm.value.latitude}`
+    // 2. 清除之前的定时器，防止连续点击产生多个请求
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
     }
+
+    // 3. 设置新的定时器，延迟 1 秒触发请求
+    debounceTimer = setTimeout(async () => {
+      try {
+        const r = await fetch(`${API_BASE}/reverse-geocode?lat=${reportForm.value.latitude}&lon=${reportForm.value.longitude}`)
+        const json = await r.json()
+        if (json.address) {
+          reportForm.value.location_name = json.address
+        } else {
+          reportForm.value.location_name = `经纬度：${reportForm.value.longitude}, ${reportForm.value.latitude}`
+        }
+      } catch (err) {
+        console.error('逆向地理编码失败', err)
+        // 失败时恢复显示基础经纬度
+        reportForm.value.location_name = `经纬度：${reportForm.value.longitude}, ${reportForm.value.latitude}`
+      }
+    }, 1000) // 延迟 1000 毫秒 (1秒)
   })
 }
 
@@ -527,26 +566,34 @@ const changeReportBasemap = () => {
   if (reportTileLayer) {
     reportMap.removeLayer(reportTileLayer)
   }
+  
+  reportTileLayer = L.layerGroup().addTo(reportMap)
+
   if (reportBasemap.value === 'osm') {
-    reportTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 18
-    }).addTo(reportMap)
+    }).addTo(reportTileLayer)
   } else if (reportBasemap.value === 'esri') {
-    reportTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles &copy; Esri',
       maxZoom: 18
-    }).addTo(reportMap)
+    }).addTo(reportTileLayer)
   } else if (reportBasemap.value === 'gaode_satellite') {
-    reportTileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
       attribution: 'Tiles &copy; 高德地图 AMap',
       maxZoom: 18
-    }).addTo(reportMap)
+    }).addTo(reportTileLayer)
   } else if (reportBasemap.value === 'gaode_satellite_annotated') {
-    reportTileLayer = L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+    // 叠加双图层
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
       attribution: 'Tiles &copy; 高德地图 AMap',
       maxZoom: 18
-    }).addTo(reportMap)
+    }).addTo(reportTileLayer)
+    
+    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+      maxZoom: 18
+    }).addTo(reportTileLayer)
   }
 }
 
@@ -589,13 +636,12 @@ const reverseGeocode = async () => {
 }
 
 const getColor = (d) => {
-  return d > 100 ? '#800026' :
-         d > 50  ? '#BD0026' :
-         d > 20  ? '#E31A1C' :
-         d > 10  ? '#FC4E2A' :
-         d > 5   ? '#FD8D3C' :
-         d > 0   ? '#FEB24C' :
-                   '#FFEDA0'
+  return d > 50 ? '#800026' :
+         d > 20 ? '#BD0026' :
+         d > 10 ? '#E31A1C' :
+         d > 5  ? '#FC4E2A' :
+         d > 2  ? '#FD8D3C' :
+                  '#FEB24C'; // 只要大于0，最起码是一个亮橙色
 }
 
 const onSpeciesChange = async () => {
