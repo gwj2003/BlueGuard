@@ -119,15 +119,17 @@
 
           <div class="species-panel">
             <h3>📚 选择物种或快速提问</h3>
-            <div class="species-buttons">
-              <button 
-                v-for="sp in speciesList.slice(0, 8)" 
-                :key="sp"
-                @click="selectChatSpecies(sp)"
-                :class="['species-btn', { active: chatSpecies === sp }]"
-              >
-                {{ sp }}
-              </button>
+            <div class="species-buttons-scroll">
+              <div class="species-buttons">
+                <button 
+                  v-for="sp in speciesList" 
+                  :key="sp"
+                  @click="selectChatSpecies(sp)"
+                  :class="['species-btn', { active: chatSpecies === sp }]"
+                >
+                  {{ sp }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -258,6 +260,16 @@ import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat' // 需要安装 leaflet.heat 插件
 
 const API_BASE = '/api'
+
+/** 统一错误体：{ error: { code, message } } 或 FastAPI detail */
+const apiErrorMessage = (data) => {
+  if (data?.error?.message != null) {
+    const m = data.error.message
+    return Array.isArray(m) ? JSON.stringify(m) : String(m)
+  }
+  if (data?.detail != null) return String(data.detail)
+  return ''
+}
 
 // =============== 全局状态 ===============
 const activeTab = ref(0)
@@ -746,7 +758,14 @@ const askQuestion = async (question) => {
       body: JSON.stringify({ question })
     })
     const data = await response.json()
-    
+    if (!response.ok) {
+      chatMessages.value.push({
+        id: msgId++,
+        role: 'assistant',
+        content: apiErrorMessage(data) || '请求失败'
+      })
+      return
+    }
     chatMessages.value.push({
       id: msgId++,
       role: 'assistant',
@@ -792,7 +811,11 @@ const saveLocation = async () => {
       body: JSON.stringify(reportForm.value)
     })
     const data = await response.json()
-    
+    if (!response.ok) {
+      reportMessage.value = '❌ 保存失败：' + (apiErrorMessage(data) || '未知错误')
+      reportMessageType.value = 'error'
+      return
+    }
     if (data.status === 'success') {
       reportMessage.value = '✅ 记录保存成功！感谢您的贡献'
       reportMessageType.value = 'success'
@@ -1205,6 +1228,22 @@ const resetForm = () => {
   margin: 0 0 12px 0;
   font-size: 1em;
   color: #333;
+}
+
+.species-buttons-scroll {
+  max-height: min(50vh, 380px);
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-right: -4px;
+}
+
+.species-buttons-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.species-buttons-scroll::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
 }
 
 .species-buttons {

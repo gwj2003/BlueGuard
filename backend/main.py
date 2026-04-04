@@ -1,8 +1,21 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field
-from graph_chain import get_chain
+from graph_chain import get_chain, invoke_qa, invalidate_chain
+from geo_data import (
+    get_china_geojson,
+    get_china_gdf,
+    point_in_china,
+    invalidate_geo_cache,
+    geo_source,
+    load_china_geojson,
+)
+from species_data import load_csv_for_gbif_file, clear_csv_cache
+from qa_cache import qa_cache
+from config import get_settings
 import geopandas as gpd
 from shapely.geometry import Point
 import pandas as pd
@@ -14,8 +27,7 @@ import rasterio
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
-from functools import lru_cache  # 新增：用于内存缓存
+from typing import Optional
 import time
 
 # 模型定义
@@ -29,7 +41,24 @@ class LocationRecord(BaseModel):
     location_name: str
     date: Optional[str] = None
 
-app = FastAPI()
+app = FastAPI(title="水生入侵物种分析 API")
+
+
+@app.exception_handler(HTTPException)
+async def _http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.status_code, "message": str(exc.detail)}},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={"error": {"code": 422, "message": exc.errors()}},
+    )
+
 
 # 【关键配置】解决跨域问题（CORS）
 app.add_middleware(
@@ -40,9 +69,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 数据目录配置
-DATA_DIR = "data"
-LOCATIONS_RECORD_FILE = os.path.join(DATA_DIR, "locations_record.csv")
+def _locations_record_file() -> str:
+    return str(get_settings().data_dir / "locations_record.csv")
 
 
 def _resolved_path_under_data_subdir(subdir: str, species: str, ext: str) -> Optional[Path]:
@@ -54,7 +82,7 @@ def _resolved_path_under_data_subdir(subdir: str, species: str, ext: str) -> Opt
         return None
     if ".." in s or ":" in s:
         return None
-    root = Path(DATA_DIR).resolve()
+    root = get_settings().data_dir.resolve()
     base = (root / subdir).resolve()
     candidate = (base / f"{s}{ext}").resolve()
     try:
@@ -65,54 +93,96 @@ def _resolved_path_under_data_subdir(subdir: str, species: str, ext: str) -> Opt
 
 
 # 静态目录，供 MaxEnt 预测PNG等文件访问
-app.mount("/static", StaticFiles(directory=DATA_DIR), name="static")
+app.mount("/static", StaticFiles(directory=str(get_settings().data_dir)), name="static")
+
+
+@app.on_event("startup")
+async def _startup_load_geo():
+    """优先加载省界（本地或联网并落盘），避免首请求才拉取。"""
+    load_china_geojson(force_reload=False)
+
 
 @app.get("/")
 def read_root():
     return {"message": "后端服务已启动！可以开始查询水生外来入侵物种了！"}
 
 # ========== 物种相关 API ==========
+def _list_gbif_species_basenames():
+    gbif_dir = str(get_settings().data_dir / "gbif_results")
+    if not os.path.exists(gbif_dir):
+        return []
+    return sorted(
+        f.replace(".csv", "")
+        for f in os.listdir(gbif_dir)
+        if f.endswith(".csv")
+    )
+
+
+def _resolve_species_for_graph_qa(raw: str):
+    """与 GBIF 文件名对齐，便于图谱侧用 CONTAINS 命中；返回 (规范名或原串, 是否在平台列表中)。"""
+    s = (raw or "").strip()
+    if not s:
+        return "", False
+    names = _list_gbif_species_basenames()
+    if s in names:
+        return s, True
+    by_lower = {n.lower(): n for n in names}
+    if s.lower() in by_lower:
+        return by_lower[s.lower()], True
+    return s, False
+
+
 @app.get("/api/species")
 def get_species_list():
     """获取所有物种列表"""
     try:
-        gbif_dir = os.path.join(DATA_DIR, "gbif_results")
-        if os.path.exists(gbif_dir):
-            species_files = [f.replace(".csv", "") for f in os.listdir(gbif_dir) if f.endswith('.csv')]
-            return {"species": sorted(species_files)}
-        return {"species": []}
+        return {"species": _list_gbif_species_basenames()}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/species/{species}")
 def get_species_info(species: str):
     """获取物种详细信息"""
+    canonical, known = _resolve_species_for_graph_qa(species)
+    display = canonical or species.strip()
+    if known:
+        cy_esc = canonical.replace("\\", "\\\\").replace("'", "\\'")
+        graph_hint = (
+            f"【图谱检索提示】本平台该物种标准名为「{canonical}」。"
+            f"生成 Cypher 查询 Species 时，请对 s.name 使用模糊匹配"
+            f"（例如 toLower(s.name) CONTAINS toLower('{cy_esc}')），不要假设图中名称与平台完全一致。\n"
+        )
+    else:
+        graph_hint = (
+            f"【图谱检索提示】用户输入为「{species.strip()}」；图中 Species.name 可能与平台 CSV 文件名不同，"
+            "请用 CONTAINS、toLower 等做模糊匹配并尝试常见别名。\n"
+        )
+    question = (
+        graph_hint
+        + f"请介绍「{display}」的基本信息、危害与防治方法。若图谱查询无结果请在回答中说明。"
+    )
     try:
         chain = get_chain()
-        response = chain.invoke({"query": f"请介绍{species}的基本信息、危害和防治方法"})
+        response = chain.invoke({"query": question})
         return {
-            "info": response['result'],
-            "cypher": response.get('generated_cypher', '')
+            "info": response["result"],
+            "cypher": response.get("generated_cypher", ""),
+            "canonical_species": canonical if known else None,
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        return {"info": "暂无知识库数据", "cypher": ""}
+        print(f"get_species_info: {e}")
+        raise HTTPException(status_code=503, detail="暂无知识库数据或图谱不可用")
 
 # ========== 地理位置相关 API ==========
-# 新增缓存读取函数：最多缓存最近查询的 20 个物种文件数据
-@lru_cache(maxsize=20)
-def load_species_data(file_path: str):
-    if os.path.exists(file_path):
-        return pd.read_csv(file_path)
-    return None
-
-
 def _get_locations_list(species: str) -> list:
     """读取 GBIF CSV 为点位列表；物种标识不合法时抛出 HTTPException。"""
     gbif_path = _resolved_path_under_data_subdir("gbif_results", species, ".csv")
     if gbif_path is None:
         raise HTTPException(status_code=400, detail="无效的物种标识")
     locations = []
-    df = load_species_data(str(gbif_path))
+    df = load_csv_for_gbif_file(str(gbif_path))
     if df is not None:
         try:
             lat_cols = ['decimalLatitude', 'latitude', 'lat']
@@ -139,28 +209,16 @@ def _get_locations_list(species: str) -> list:
 
 @app.get("/api/locations/{species}")
 def get_locations(species: str):
-    """获取物种分布位置（使用 LRU Cache 优化 I/O）"""
+    """获取物种分布位置（CSV 按 mtime 缓存）"""
     try:
         return {"locations": _get_locations_list(species)[:1000]}
     except HTTPException:
         raise
     except Exception as e:
         print(f"Get locations error: {e}")
-        return {"locations": [], "error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ========== 图层与空间分析 API ==========
-
-def _load_china_geojson():
-    url = "https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json"
-    try:
-        res = requests.get(url, timeout=15)
-        res.raise_for_status()
-        return res.json()
-    except Exception as e:
-        print(f"加载中国省界 GeoJSON 失败: {e}")
-        return None
-
-china_geojson = _load_china_geojson()
 
 @app.get("/api/heatmap/{species}")
 def get_heatmap(species: str):
@@ -176,51 +234,12 @@ def get_heatmap(species: str):
             points.append([lat, lon, 1.0])
     return {"points": points}
 
-# 缓存 GeoDataFrame，加速运算
-china_gdf = None
-def get_china_gdf():
-    global china_gdf
-    if china_gdf is None and china_geojson:
-        china_gdf = gpd.GeoDataFrame.from_features(china_geojson["features"])
-        china_gdf.set_crs(epsg=4326, inplace=True)
-    return china_gdf
-
-
-_china_land_union: Any = None  # 惰性缓存几何体；_CHINA_UNION_MISS 表示国界不可用
-_CHINA_UNION_MISS = object()
-
-
-def _get_china_land_union():
-    """中国陆域（各省多边形合并），与省级填色图同源 GeoJSON，用于上报坐标是否在境内判定。"""
-    global _china_land_union
-    if _china_land_union is _CHINA_UNION_MISS:
-        return None
-    if _china_land_union is not None:
-        return _china_land_union
-    gdf = get_china_gdf()
-    if gdf is None or gdf.empty:
-        _china_land_union = _CHINA_UNION_MISS
-        return None
-    try:
-        _china_land_union = gdf.geometry.union_all()
-    except AttributeError:
-        from shapely.ops import unary_union
-        _china_land_union = unary_union(gdf.geometry.values)
-    return _china_land_union
-
-
-def _coord_is_inside_china(lon: float, lat: float) -> Optional[bool]:
-    """若国界数据可用则 True/False；无法加载国界时返回 None。"""
-    poly = _get_china_land_union()
-    if poly is None:
-        return None
-    return bool(poly.covers(Point(lon, lat)))
-
 
 @app.get("/api/province-data/{species}")
 def get_province_data(species: str):
+    china_geojson = get_china_geojson()
     if not china_geojson:
-        raise HTTPException(status_code=500, detail="中国省界 GeoJSON 尚未加载")
+        raise HTTPException(status_code=500, detail="中国省界 GeoJSON 尚未加载（请配置 data/geo/china_100000_full.json 或检查网络）")
         
     try:
         locations = _get_locations_list(species)
@@ -337,23 +356,28 @@ def reverse_geocode(lat: float, lon: float):
 # ========== 知识问答 API ==========
 @app.post("/api/qa")
 def qa_question(request: QuestionRequest):
-    """知识图谱问答"""
+    """知识图谱问答（模板命中时减少一次 Cypher 生成 LLM；结果带 TTL 缓存）"""
+    if not request.question or not request.question.strip():
+        raise HTTPException(status_code=400, detail="问题不能为空")
+    q = request.question.strip()
+    names = _list_gbif_species_basenames()
+    cached = qa_cache.get(q)
+    if cached:
+        return cached
     try:
-        if not request.question or not request.question.strip():
-            raise HTTPException(status_code=400, detail="问题不能为空")
-        
-        chain = get_chain()
-        response = chain.invoke({"query": request.question})
-        return {
-            "answer": response.get('result', '无法获取回答'),
-            "cypher": response.get('generated_cypher', '')
+        response = invoke_qa(q, names)
+        out = {
+            "answer": response.get("result", "无法获取回答"),
+            "cypher": response.get("generated_cypher", ""),
+            "from_template": bool(response.get("from_template", False)),
         }
+        qa_cache.set(q, out)
+        return out
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(f"QA Error: {e}")
-        return {
-            "answer": f"暂时无法回答，请稍后重试。(错误: {type(e).__name__})",
-            "cypher": ""
-        }
+        raise HTTPException(status_code=503, detail=f"暂时无法回答: {type(e).__name__}")
 
 @app.get("/api/qa/suggestions/{species}")
 def get_qa_suggestions(species: str):
@@ -371,65 +395,87 @@ def get_qa_suggestions(species: str):
 @app.post("/api/record/location")
 def record_location(record: LocationRecord):
     """上报新的物种位置记录"""
+    loc_file = _locations_record_file()
+    inside = point_in_china(record.longitude, record.latitude)
+    if inside is None:
+        raise HTTPException(
+            status_code=503,
+            detail="国界参考数据未就绪。请将省界 GeoJSON 放入 data/geo/ 或检查网络后重试。",
+        )
+    if not inside:
+        raise HTTPException(
+            status_code=400,
+            detail="坐标须位于中国境内（与省级地图使用的省界范围一致）。",
+        )
     try:
-        inside = _coord_is_inside_china(record.longitude, record.latitude)
-        if inside is None:
-            return {
-                "status": "error",
-                "message": "国界参考数据未就绪，暂无法校验坐标。请确认后端可访问外网加载省界数据后重试。",
-            }
-        if not inside:
-            return {
-                "status": "error",
-                "message": "坐标须位于中国境内（与省级地图使用的官方省界范围一致）。",
-            }
-
-        # 初始化 CSV 文件
-        if not os.path.exists(LOCATIONS_RECORD_FILE):
-            Path(LOCATIONS_RECORD_FILE).parent.mkdir(parents=True, exist_ok=True)
-            with open(LOCATIONS_RECORD_FILE, 'w', newline='', encoding='utf-8') as f:
+        if not os.path.exists(loc_file):
+            Path(loc_file).parent.mkdir(parents=True, exist_ok=True)
+            with open(loc_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(['species', 'latitude', 'longitude', 'location_name', 'date', 'timestamp'])
-        
-        # 写入新记录
-        with open(LOCATIONS_RECORD_FILE, 'a', newline='', encoding='utf-8') as f:
+                writer.writerow(
+                    ["species", "latitude", "longitude", "location_name", "date", "timestamp"]
+                )
+
+        with open(loc_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                record.species,
-                record.latitude,
-                record.longitude,
-                record.location_name,
-                record.date or datetime.now().strftime("%Y-%m-%d"),
-                datetime.now().isoformat()
-            ])
-        return {
-            "status": "success", 
-            "message": "记录已保存"
-        }
-    except ValueError as e:
-        return {
-            "status": "error",
-            "message": f"数据验证失败: {str(e)}"
-        }
+            writer.writerow(
+                [
+                    record.species,
+                    record.latitude,
+                    record.longitude,
+                    record.location_name,
+                    record.date or datetime.now().strftime("%Y-%m-%d"),
+                    datetime.now().isoformat(),
+                ]
+            )
+        return {"status": "success", "message": "记录已保存"}
     except Exception as e:
         print(f"Record Error: {e}")
-        return {
-            "status": "error",
-            "message": f"保存失败: {str(e)}"
-        }
+        raise HTTPException(status_code=500, detail=f"保存失败: {e}")
 
 @app.get("/api/records")
 def get_all_records():
     """获取所有上报的记录"""
+    loc_file = _locations_record_file()
     try:
-        if os.path.exists(LOCATIONS_RECORD_FILE):
-            df = pd.read_csv(LOCATIONS_RECORD_FILE)
-            return {"records": df.to_dict(orient='records')}
+        if os.path.exists(loc_file):
+            df = pd.read_csv(loc_file)
+            return {"records": df.to_dict(orient="records")}
         return {"records": []}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+def _require_admin(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
+    s = get_settings()
+    if not s.admin_api_key:
+        raise HTTPException(status_code=503, detail="管理接口未配置 ADMIN_API_KEY")
+    if x_admin_key != s.admin_api_key:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@app.post("/api/admin/cache/invalidate")
+def admin_invalidate_cache(x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key")):
+    """清空省界内存缓存、CSV 缓存、图谱链、问答缓存；需 X-Admin-Key。"""
+    _require_admin(x_admin_key)
+    invalidate_geo_cache()
+    clear_csv_cache()
+    invalidate_chain()
+    qa_cache.clear()
+    load_china_geojson(force_reload=True)
+    return {"ok": True, "message": "已失效缓存并尝试重新加载省界数据"}
+
+
 @app.get("/api/health")
 def health_check():
     """健康检查"""
-    return {"status": "ok"}
+    gj = get_china_geojson()
+    from graph_chain import get_neo4j_graph
+
+    neo = get_neo4j_graph()
+    return {
+        "status": "ok",
+        "china_geojson": bool(gj),
+        "china_geo_source": geo_source(),
+        "neo4j_connected": neo is not None,
+    }
