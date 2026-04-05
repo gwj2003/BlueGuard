@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, HTTPException, Header, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -16,6 +16,15 @@ from geo_data import (
 from species_data import load_csv_for_gbif_file, clear_csv_cache
 from qa_cache import qa_cache
 from config import get_settings
+from database import (
+    init_db,
+    get_db,
+    get_species_list,
+    get_locations_by_species,
+    add_location_record,
+    get_all_records,
+    get_db_stats,
+)
 import geopandas as gpd
 from shapely.geometry import Point
 import pandas as pd
@@ -29,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import time
+from sqlalchemy.orm import Session
 
 # 模型定义
 class QuestionRequest(BaseModel):
@@ -116,8 +126,10 @@ app.mount("/static", StaticFiles(directory=str(get_settings().data_dir)), name="
 
 @app.on_event("startup")
 async def _startup_load_geo():
-    """优先加载省界（本地或联网并落盘），避免首请求才拉取。"""
+    """优先加载省界（本地或联网并落盘），避免首请求才拉取；初始化数据库"""
     load_china_geojson(force_reload=False)
+    # 初始化数据库
+    init_db()
 
 
 @app.get("/")
@@ -125,30 +137,31 @@ def read_root():
     return {"message": "后端服务已启动！可以开始查询水生外来入侵物种了！"}
 
 # ========== 物种相关 API ==========
-def _list_gbif_species_basenames():
+def _list_gbif_species_basenames(db: Session = None):
     """
-    扫描 GBIF 结果目录，获取所有物种名称列表
+    从数据库获取所有物种名称列表
 
     Returns:
-        物种名称列表（不含 .csv 扩展名），按字母排序
+        物种名称列表（按字母排序）
     """
-    gbif_dir = str(get_settings().data_dir / "gbif_results")
-    if not os.path.exists(gbif_dir):
-        return []
-    return sorted(
-        f.replace(".csv", "")
-        for f in os.listdir(gbif_dir)
-        if f.endswith(".csv")
-    )
+    if db is None:
+        from database import SessionLocal
+        db = SessionLocal()
+        try:
+            return get_species_list(db)
+        finally:
+            db.close()
+    return get_species_list(db)
 
 
-def _resolve_species_for_graph_qa(raw: str):
+def _resolve_species_for_graph_qa(raw: str, db: Session = None):
     """
-    规范物种名称，与 GBIF 文件名对齐
+    规范物种名称，与数据库中的名称对齐
     用于知识图谱查询时的物种匹配
 
     Args:
         raw: 用户输入的物种名（可能有大小写混淆）
+        db: 数据库会话
 
     Returns:
         (规范名或原串, 是否在平台列表中)
@@ -157,7 +170,15 @@ def _resolve_species_for_graph_qa(raw: str):
     if not s:
         return "", False
 
-    names = _list_gbif_species_basenames()
+    if db is None:
+        from database import SessionLocal
+        db = SessionLocal()
+        try:
+            names = get_species_list(db)
+        finally:
+            db.close()
+    else:
+        names = get_species_list(db)
 
     # 精确匹配
     if s in names:
@@ -215,59 +236,37 @@ def get_species_info(species: str):
         raise HTTPException(status_code=503, detail="暂无知识库数据或图谱不可用")
 
 # ========== 地理位置相关 API ==========
-def _get_locations_list(species: str) -> list:
+def _get_locations_list(species: str, db: Session) -> list:
     """
-    从 GBIF CSV 文件读取物种分布位置数据
+    从数据库读取物种分布位置数据
 
     Args:
-        species: 物种名称，必须是合法的物种标识符
+        species: 物种名称
+        db: 数据库会话
 
     Returns:
         位置列表，每项包含: {"latitude", "longitude", "location_name"}
 
     Raises:
-        HTTPException: 物种标识非法时返回 400
+        HTTPException: 物种不存在时返回 400
     """
-    gbif_path = _resolved_path_under_data_subdir("gbif_results", species, ".csv")
-    if gbif_path is None:
-        raise HTTPException(status_code=400, detail="无效的物种标识")
+    locations = get_locations_by_species(db, species, limit=1000)
 
-    locations = []
-    df = load_csv_for_gbif_file(str(gbif_path))
-
-    if df is not None:
-        try:
-            # 支持多种列名格式
-            lat_cols = ['decimalLatitude', 'latitude', 'lat']
-            lon_cols = ['decimalLongitude', 'longitude', 'lon', 'lng']
-            lat_col = next((col for col in lat_cols if col in df.columns), None)
-            lon_col = next((col for col in lon_cols if col in df.columns), None)
-
-            if lat_col and lon_col:
-                for _, row in df.iterrows():
-                    try:
-                        lat = float(row[lat_col])
-                        lon = float(row[lon_col])
-                        # 验证坐标范围有效性
-                        if -90 <= lat <= 90 and -180 <= lon <= 180:
-                            locations.append({
-                                "latitude": lat,
-                                "longitude": lon,
-                                "location_name": str(row.get('locality', row.get('location', 'Unknown')))[:100]
-                            })
-                    except (ValueError, TypeError):
-                        continue
-        except Exception as e:
-            print(f"Error parsing dataframe: {e}")
+    if not locations:
+        # 检查物种是否存在
+        all_species = get_species_list(db)
+        if species not in all_species:
+            raise HTTPException(status_code=404, detail=f"物种 '{species}' 未找到")
 
     return locations
 
 
 @app.get("/api/locations/{species}")
-def get_locations(species: str):
-    """获取物种分布位置（CSV 按 mtime 缓存）"""
+def get_locations(species: str, db: Session = Depends(get_db)):
+    """获取物种分布位置（从数据库检索）"""
     try:
-        return {"locations": _get_locations_list(species)[:1000]}
+        locations = get_locations_by_species(db, species, limit=1000)
+        return {"locations": locations}
     except HTTPException:
         raise
     except Exception as e:
@@ -277,9 +276,9 @@ def get_locations(species: str):
 # ========== 图层与空间分析 API ==========
 
 @app.get("/api/heatmap/{species}")
-def get_heatmap(species: str):
+def get_heatmap(species: str, db: Session = Depends(get_db)):
     try:
-        all_locs = _get_locations_list(species)
+        all_locs = get_locations_by_species(db, species)
     except HTTPException:
         raise
     points = []
@@ -292,30 +291,30 @@ def get_heatmap(species: str):
 
 
 @app.get("/api/province-data/{species}")
-def get_province_data(species: str):
+def get_province_data(species: str, db: Session = Depends(get_db)):
     china_geojson = get_china_geojson()
     if not china_geojson:
         raise HTTPException(status_code=500, detail="中国省界 GeoJSON 尚未加载（请配置 data/geo/china_100000_full.json 或检查网络）")
-        
+
     try:
-        locations = _get_locations_list(species)
+        locations = get_locations_by_species(db, species)
     except HTTPException:
         raise
-    
-    # ==== 核心修复：基于经纬度的空间位置精确判定 ====
+
+    # ==== 核心：基于经纬度的空间位置精确判定 ====
     dist = {}
     gdf_map = get_china_gdf()
-    
+
     if gdf_map is not None and locations:
         df = pd.DataFrame(locations)
         # 确保有坐标才能运算
         if not df.empty and 'longitude' in df.columns and 'latitude' in df.columns:
             geometry = [Point(xy) for xy in zip(df['longitude'], df['latitude'])]
             points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
-            
+
             # 空间连接：判断点落入哪个省份多边形
             joined = gpd.sjoin(points_gdf, gdf_map, how="inner", predicate='within')
-            
+
             # 统计各省份出现的频次
             name_col = 'name' if 'name' in joined.columns else 'NAME'
             if name_col in joined.columns:
@@ -328,7 +327,7 @@ def get_province_data(species: str):
         province_name = props.get("name") or props.get("NAME") or props.get("fullname")
         # 直接使用空间统计的结果
         count = dist.get(province_name, 0)
-        
+
         new_feat = {
             "type": "Feature",
             "geometry": feat.get("geometry"),
@@ -339,7 +338,7 @@ def get_province_data(species: str):
             }
         }
         features.append(new_feat)
-        
+
     return {"geojson": {"type": "FeatureCollection", "features": features}}
 
 @app.get("/api/maxent-image/{species}")
@@ -412,7 +411,7 @@ def reverse_geocode(lat: float, lon: float):
 # ========== 知识问答 API ==========
 
 @app.post("/api/qa")
-def qa_question(request: QuestionRequest):
+def qa_question(request: QuestionRequest, db: Session = Depends(get_db)):
     """
     知识图谱问答接口
 
@@ -426,7 +425,7 @@ def qa_question(request: QuestionRequest):
         raise HTTPException(status_code=400, detail="问题不能为空")
 
     q = request.question.strip()
-    names = _list_gbif_species_basenames()
+    names = get_species_list(db)
 
     # 检查缓存
     cached = qa_cache.get(q)
@@ -465,7 +464,7 @@ def get_qa_suggestions(species: str):
 # ========== 数据上报 API ==========
 
 @app.post("/api/record/location")
-def record_location(record: LocationRecord):
+def record_location(record: LocationRecord, db: Session = Depends(get_db)):
     """
     上报新的物种分布位置
 
@@ -477,8 +476,6 @@ def record_location(record: LocationRecord):
     Returns:
         {"status": "success", "message": "记录已保存"}
     """
-    loc_file = _locations_record_file()
-
     # 先验证坐标在中国范围内
     inside = point_in_china(record.longitude, record.latitude)
     if inside is None:
@@ -493,29 +490,14 @@ def record_location(record: LocationRecord):
         )
 
     try:
-        # 初始化 CSV 文件（如果不存在）
-        if not os.path.exists(loc_file):
-            Path(loc_file).parent.mkdir(parents=True, exist_ok=True)
-            with open(loc_file, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    ["species", "latitude", "longitude", "location_name", "date", "timestamp"]
-                )
-
-        # 追加新记录
-        with open(loc_file, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    record.species,
-                    record.latitude,
-                    record.longitude,
-                    record.location_name,
-                    record.date or datetime.now().strftime("%Y-%m-%d"),
-                    datetime.now().isoformat(),
-                ]
-            )
-
+        add_location_record(
+            db,
+            record.species,
+            record.latitude,
+            record.longitude,
+            record.location_name,
+            record.date,
+        )
         return {"status": "success", "message": "记录已保存"}
 
     except Exception as e:
@@ -524,14 +506,11 @@ def record_location(record: LocationRecord):
 
 
 @app.get("/api/records")
-def get_all_records():
+def get_records(db: Session = Depends(get_db)):
     """获取所有用户上报的记录"""
-    loc_file = _locations_record_file()
     try:
-        if os.path.exists(loc_file):
-            df = pd.read_csv(loc_file)
-            return {"records": df.to_dict(orient="records")}
-        return {"records": []}
+        records = get_all_records(db)
+        return {"records": records}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -557,15 +536,22 @@ def admin_invalidate_cache(x_admin_key: Optional[str] = Header(None, alias="X-Ad
 
 
 @app.get("/api/health")
-def health_check():
-    """健康检查"""
+def health_check(db: Session = Depends(get_db)):
+    """健康检查，包括数据库状态"""
     gj = get_china_geojson()
     from graph_chain import get_neo4j_graph
 
     neo = get_neo4j_graph()
+
+    try:
+        stats = get_db_stats(db)
+    except Exception as e:
+        stats = {"error": str(e)}
+
     return {
         "status": "ok",
         "china_geojson": bool(gj),
         "china_geo_source": geo_source(),
         "neo4j_connected": neo is not None,
+        "database": stats,
     }

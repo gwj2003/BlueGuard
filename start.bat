@@ -41,7 +41,7 @@ start "Backend - 水生入侵物种平台" cmd /k ^
     echo 启动 FastAPI 服务器... && ^
     uvicorn main:app --reload --port 8000 --host 0.0.0.0"
 
-timeout /t 2 /nobreak > nul
+timeout /t 3 /nobreak > nul
 
 REM Start frontend
 echo [*] 启动前端服务（端口 5173）...
@@ -53,9 +53,9 @@ start "Frontend - 水生入侵物种平台" cmd /k ^
     echo 启动开发服务器... && ^
     npm run dev"
 
-timeout /t 2 /nobreak > nul
+timeout /t 5 /nobreak > nul
 
-REM Display info
+REM Clear screen and display info
 cls
 echo.
 echo ====================================================
@@ -72,4 +72,12 @@ echo   - 按 Ctrl+C 可停止对应服务
 echo   - 若要关闭所有服务，关闭两个窗口即可
 echo.
 echo ====================================================
+echo.
+echo [*] 正在打开浏览器，请稍候...
+timeout /t 3 /nobreak > nul
+
+REM 自动打开浏览器
+echo [*] 打开 http://localhost:5173
+start http://localhost:5173
+
 timeout /t 300
