@@ -13,7 +13,7 @@ from geo_data import (
     geo_source,
     load_china_geojson,
 )
-from species_data import load_csv_for_gbif_file, clear_csv_cache
+from species_data import clear_csv_cache
 from qa_cache import qa_cache
 from config import get_settings
 from database import (
@@ -28,13 +28,10 @@ from database import (
 import geopandas as gpd
 from shapely.geometry import Point
 import pandas as pd
-import csv
-import os
 import requests
 import numpy as np
 import rasterio
 import matplotlib.pyplot as plt
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import time
@@ -78,11 +75,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-def _locations_record_file() -> str:
-    """获取用户上报记录的CSV文件路径"""
-    return str(get_settings().data_dir / "locations_record.csv")
-
 
 def _resolved_path_under_data_subdir(subdir: str, species: str, ext: str) -> Optional[Path]:
     """
@@ -234,32 +226,6 @@ def get_species_info(species: str):
     except Exception as e:
         print(f"get_species_info: {e}")
         raise HTTPException(status_code=503, detail="暂无知识库数据或图谱不可用")
-
-# ========== 地理位置相关 API ==========
-def _get_locations_list(species: str, db: Session) -> list:
-    """
-    从数据库读取物种分布位置数据
-
-    Args:
-        species: 物种名称
-        db: 数据库会话
-
-    Returns:
-        位置列表，每项包含: {"latitude", "longitude", "location_name"}
-
-    Raises:
-        HTTPException: 物种不存在时返回 400
-    """
-    locations = get_locations_by_species(db, species, limit=1000)
-
-    if not locations:
-        # 检查物种是否存在
-        all_species = get_species_list(db)
-        if species not in all_species:
-            raise HTTPException(status_code=404, detail=f"物种 '{species}' 未找到")
-
-    return locations
-
 
 @app.get("/api/locations/{species}")
 def get_locations(species: str, db: Session = Depends(get_db)):

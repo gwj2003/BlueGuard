@@ -11,17 +11,15 @@ CSV 到 SQLite 数据库迁移脚本
     - 备份原始 CSV 文件到 backup/ 目录
 """
 
-import os
 import sys
 import csv
 from pathlib import Path
-from datetime import datetime
 
 # 添加 backend 目录到 Python 路径
 backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
 
-from database import init_db, bulk_insert_species_data, get_db_stats, SessionLocal, SpeciesDistribution
+from database import init_db, bulk_insert_species_data, get_db_stats, SessionLocal
 from config import get_settings
 
 
@@ -59,35 +57,29 @@ def migrate_csv_to_db():
     # 导入数据
     print("[3/4] 导入数据到数据库...")
     total_imported = 0
-    db = SessionLocal()
+    for csv_file in csv_files:
+        species_name = csv_file.stem
+        print(f"  导入 {species_name}...", end=" ")
 
-    try:
-        for csv_file in csv_files:
-            species_name = csv_file.stem
-            print(f"  导入 {species_name}...", end=" ")
+        data_list = []
+        with open(csv_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                data_list.append({
+                    "species_label": row.get("species_label") or species_name,
+                    "scientific_name": row.get("gbif_scientific_name"),
+                    "latitude": _safe_float(row.get("lat")),
+                    "longitude": _safe_float(row.get("lng")),
+                    "province": row.get("province"),
+                    "region_code": row.get("region_code"),
+                    "date": row.get("date"),
+                    "dataset": row.get("dataset"),
+                    "year": _safe_int(row.get("year")),
+                })
 
-            data_list = []
-            with open(csv_file, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    data_list.append({
-                        "species_label": row.get("species_label") or species_name,
-                        "scientific_name": row.get("gbif_scientific_name"),
-                        "latitude": _safe_float(row.get("lat")),
-                        "longitude": _safe_float(row.get("lng")),
-                        "province": row.get("province"),
-                        "region_code": row.get("region_code"),
-                        "date": row.get("date"),
-                        "dataset": row.get("dataset"),
-                        "year": _safe_int(row.get("year")),
-                    })
-
-            count = bulk_insert_species_data(data_list)
-            total_imported += count
-            print(f"✓ ({count} 条)")
-
-    finally:
-        db.close()
+        count = bulk_insert_species_data(data_list)
+        total_imported += count
+        print(f"✓ ({count} 条)")
 
     print()
     print("[4/4] 迁移结果统计...")

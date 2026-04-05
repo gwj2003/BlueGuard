@@ -12,10 +12,11 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.env/
+env/
 
 # Node.js
 node_modules/
-package-lock.json
 dist/
 dist-ssr/
 .vscode/*
@@ -37,4 +38,5 @@ coverage/
 Thumbs.db
 
 # 业务数据
+# 本项目数据体积大，默认不纳入版本控制
 backend/data/

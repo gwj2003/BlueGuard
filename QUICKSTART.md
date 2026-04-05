@@ -13,12 +13,6 @@
 start.bat
 ```
 
-**Linux/macOS:**
-```bash
-chmod +x start.sh
-./start.sh
-```
-
 等待输出显示：
 ```
 📱 前端地址：http://localhost:5173
@@ -96,8 +90,8 @@ npm run dev
 2. **左侧表单填写：**
    - 物种名称（必选）- 从下拉菜单选择
    - 详细地名（必选） - 例如"杭州西湖"
-   - 经度（必选） - 范围 -180 ~ 180
-   - 纬度（必选） - 范围 -90 ~ 90
+   - 经度（必选） - 范围 中国境内
+   - 纬度（必选） - 范围 中国境内
    - 发现日期（可选） - 默认为今天
 
 3. 点击"💾 保存记录"
@@ -136,40 +130,67 @@ npm run dev
 
 ## 🔧 API 使用示例
 
-### 获取物种列表
-```bash
-curl http://localhost:8000/api/species
+### 可直接在浏览器中测试的端点
+
+**获取物种列表：**
+```
+http://localhost:8000/api/species
 ```
 
-### 获取物种分布位置
-```bash
-curl http://localhost:8000/api/locations/福寿螺
+**获取物种分布位置：**
+```
+http://localhost:8000/api/locations/福寿螺
 ```
 
-### 提交问题
-```bash
-curl -X POST http://localhost:8000/api/qa \
-  -H "Content-Type: application/json" \
-  -d '{"question": "福寿螺有什么危害？"}'
+**获取所有上报记录：**
+```
+http://localhost:8000/api/records
 ```
 
-### 上报新发现
-```bash
-curl -X POST http://localhost:8000/api/record/location \
-  -H "Content-Type: application/json" \
+### POST 端点使用方法
+
+对于 POST 请求（如提交问题、上报新发现），有以下几种方式：
+
+#### 方式 1：使用 Swagger UI（最简单，推荐）✨
+
+1. 打开：http://localhost:8000/docs
+2. 找到对应的 POST 端点（如 `/api/qa`）
+3. 点击 "Try it out" 按钮
+4. 填入参数和请求体
+5. 点击 "Execute" 看到响应结果
+
+#### 方式 2：使用 curl 命令
+
+**提交问题：**
+```powershell
+curl -X POST http://localhost:8000/api/qa `
+  -H "Content-Type: application/json" `
+  -d '{\"question\": \"福寿螺有什么危害？\"}'
+```
+
+**上报新发现：**
+```powershell
+curl -X POST http://localhost:8000/api/record/location `
+  -H "Content-Type: application/json" `
   -d '{
-    "species": "福寿螺",
-    "latitude": 30.27,
-    "longitude": 120.15,
-    "location_name": "杭州西湖",
-    "date": "2024-04-01"
+    \"species\": \"福寿螺\",
+    \"latitude\": 30.27,
+    \"longitude\": 120.15,
+    \"location_name\": \"杭州西湖\",
+    \"date\": \"2024-04-01\"
   }'
 ```
 
-### 获取所有上报记录
-```bash
-curl http://localhost:8000/api/records
-```
+#### 方式 3：使用 Postman 等 API 工具
+
+1. 下载 [Postman](https://www.postman.com/)
+2. 新建 POST 请求，填入 URL
+3. Body → raw → JSON
+4. 输入参数并发送
+
+#### 方式 4：直接在网页应用中使用
+
+你在网页上的聊天、数据上报功能就通过这些 POST 端点实现的。应用已经在使用这些接口。
 
 ---
 
@@ -178,7 +199,7 @@ curl http://localhost:8000/api/records
 | 数据元素 | 位置 |
 |---------|------|
 | 物种分布数据 | `backend/data/gbif_results/*.csv` |
-| 用户上报数据 | `backend/data/locations_record.csv` |
+| 用户上报数据 | SQLite: `backend/data/species.db` |
 | 物种信息 | `backend/data/animals/` |
 | 预测模型结果 | `backend/data/maxent_results/` |
 
@@ -198,9 +219,7 @@ curl http://localhost:8000/api/records
 
 ## 🛑 停止应用
 
-**Windows:** 直接关闭两个启动的窗口
-
-**Linux/macOS:** 在启动脚本所在终端按 `Ctrl+C`
+**Windows:** 直接关闭两个启动的窗口/在启动脚本所在终端按 `Ctrl+C`，然后根据提示按y
 
 ---
 
@@ -208,9 +227,5 @@ curl http://localhost:8000/api/records
 
 详见项目文档：
 - **README.md** - 项目概述和部署指南
-- **TESTING.md** - 详细测试步骤
-- **IMPLEMENTATION.md** - 实现细节和技术栈
 
 ---
-
-**版本**: 1.0 | **更新**: 2024-04-01

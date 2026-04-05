@@ -4,8 +4,6 @@ SQLite 数据库配置和模型定义
 支持多用户并发读取，单点写入（由于SQLite特性）
 """
 
-import sqlite3
-from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional, List
 from datetime import datetime

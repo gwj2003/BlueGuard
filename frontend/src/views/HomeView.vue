@@ -77,7 +77,8 @@
               <div v-for="msg in chatMessages" :key="msg.id" :class="['message', msg.role]">
                 <div class="message-content">
                   <span class="role-label">{{ msg.role === 'user' ? '你' : '助手' }}：</span>
-                  <span>{{ msg.content }}</span>
+                  <div v-if="msg.role === 'assistant'" class="message-text markdown-body" v-html="renderMarkdown(msg.content)"></div>
+                  <span v-else class="message-text">{{ msg.content }}</span>
                 </div>
               </div>
               <div v-if="isLoading" class="message assistant">
@@ -258,8 +259,27 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat' // 需要安装 leaflet.heat 插件
+import { marked } from 'marked'
 
 const API_BASE = '/api'
+
+/**
+ * 渲染Markdown为HTML，支持安全的HTML渲染
+ */
+const renderMarkdown = (content) => {
+  if (!content) return ''
+  try {
+    // 配置marked选项
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+    })
+    return marked(content)
+  } catch (e) {
+    console.error('Markdown渲染错误:', e)
+    return content.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+}
 
 /**
  * 解析API错误信息，兼容多种错误格式
@@ -271,6 +291,19 @@ const apiErrorMessage = (data) => {
   }
   if (data?.detail != null) return String(data.detail)
   return ''
+}
+
+/**
+ * 安全解析响应体：优先JSON，失败时回退为文本
+ */
+const parseResponseBody = async (response) => {
+  const raw = await response.text()
+  if (!raw) return { json: null, text: '' }
+  try {
+    return { json: JSON.parse(raw), text: raw }
+  } catch {
+    return { json: null, text: raw }
+  }
 }
 
 /**
@@ -729,6 +762,20 @@ const selectChatSpecies = async (species) => {
   lastSpeciesForRefresh.value = species
   await loadSuggestions(species)
   refreshRandomQuestions()
+  // 选择新物种后滚动到顶部以显示欢迎信息
+  scrollToBottom()
+}
+
+/**
+ * 自动滚动到消息底部
+ */
+const scrollToBottom = () => {
+  nextTick(() => {
+    const container = document.querySelector('.messages-container')
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
+  })
 }
 
 const sendMessage = () => {
@@ -742,6 +789,9 @@ const sendMessage = () => {
     role: 'user',
     content: question
   })
+  
+  // 确保用户消息立即显示
+  scrollToBottom()
   
   askQuestion(question)
 }
@@ -762,6 +812,7 @@ const askQuestion = async (question) => {
         role: 'assistant',
         content: apiErrorMessage(data) || '请求失败'
       })
+      scrollToBottom()
       return
     }
     chatMessages.value.push({
@@ -769,12 +820,14 @@ const askQuestion = async (question) => {
       role: 'assistant',
       content: data.answer || '无法获取回答，请检查后端连接'
     })
+    scrollToBottom()
   } catch (error) {
     chatMessages.value.push({
       id: msgId++,
       role: 'assistant',
       content: '连接失败，请检查后端服务是否运行'
     })
+    scrollToBottom()
   } finally {
     isLoading.value = false
     
@@ -792,6 +845,7 @@ const askQuestion = async (question) => {
 const clearChat = () => {
   chatMessages.value = [chatMessages.value[0]]
   msgId = 1
+  scrollToBottom()
 }
 
 // =============== Tab 3: 数据上报 ===============
@@ -808,13 +862,17 @@ const saveLocation = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reportForm.value)
     })
-    const data = await response.json()
+
+    const { json: data, text } = await parseResponseBody(response)
+
     if (!response.ok) {
-      reportMessage.value = '❌ 保存失败：' + (apiErrorMessage(data) || '未知错误')
+      const backendMsg = apiErrorMessage(data)
+      reportMessage.value = '❌ 保存失败：' + (backendMsg || text || `HTTP ${response.status}`)
       reportMessageType.value = 'error'
       return
     }
-    if (data.status === 'success') {
+
+    if (data?.status === 'success') {
       reportMessage.value = '✅ 记录保存成功！感谢您的贡献'
       reportMessageType.value = 'success'
       if (reportForm.value.latitude !== null && reportForm.value.longitude !== null) {
@@ -827,7 +885,7 @@ const saveLocation = async () => {
         reportMessage.value = ''
       }, 3000)
     } else {
-      reportMessage.value = '❌ 保存失败：' + (data.message || '未知错误')
+      reportMessage.value = '❌ 保存失败：' + (data?.message || text || '未知错误')
       reportMessageType.value = 'error'
     }
   } catch (error) {
@@ -1048,7 +1106,8 @@ const resetForm = () => {
   grid-template-columns: 1fr 280px;
   gap: 20px;
   padding: 20px;
-  min-height: 600px;
+  min-height: 700px;
+  height: calc(100vh - 280px);
 }
 
 .chat-wrapper {
@@ -1058,6 +1117,8 @@ const resetForm = () => {
   border-radius: 8px;
   border: 1px solid #eee;
   overflow: hidden;
+  height: 100%;
+  max-height: 700px;
 }
 
 .chat-header {
@@ -1093,12 +1154,46 @@ const resetForm = () => {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  background: #fafbfc;
+  min-height: 400px;
+  max-height: 600px;
+}
+
+/* 自定义滚动条 */
+.messages-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
 }
 
 .message {
   display: flex;
   margin: 0;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message.user {
@@ -1110,88 +1205,254 @@ const resetForm = () => {
 }
 
 .message-content {
-  max-width: 80%;
-  padding: 10px 14px;
-  border-radius: 8px;
-  display: flex;
-  gap: 8px;
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  line-height: 1.5;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  display: block;
 }
 
 .message.user .message-content {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 .message.assistant .message-content {
-  background: #f0f0f0;
+  background: white;
   color: #333;
+  border: 1px solid #e0e0e0;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.message-text {
+  display: block;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
 }
 
 .role-label {
   font-weight: 600;
-  white-space: nowrap;
+  display: none;
+}
+.markdown-body {
+  font-size: 0.95em;
+  line-height: 1.7;
+  color: #2c3e50;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  margin-top: 16px;
+  margin-bottom: 10px;
+  font-weight: 700;
+  color: #1a5490;
+  border-bottom: 2px solid #e8f0f7;
+  padding-bottom: 8px;
+}
+
+.markdown-body h1 { 
+  font-size: 1.4em;
+  color: #0d47a1;
+  border-bottom: 3px solid #1976d2;
+}
+
+.markdown-body h2 { 
+  font-size: 1.25em;
+  color: #1565c0;
+  border-bottom: 2px solid #1976d2;
+}
+
+.markdown-body h3 { 
+  font-size: 1.15em;
+  color: #1976d2;
+  border-bottom: 2px solid #90caf9;
+}
+
+.markdown-body h4 { 
+  font-size: 1.05em;
+  color: #1976d2;
+}
+
+.markdown-body p {
+  margin: 10px 0;
+  line-height: 1.7;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 12px 0;
+  padding-left: 32px;
+}
+
+.markdown-body li {
+  margin: 8px 0;
+  line-height: 1.7;
+}
+
+.markdown-body ul > li::marker {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.markdown-body ol > li::marker {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+.markdown-body code {
+  background: #f5f7fa;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: 'Courier New', 'Courier', monospace;
+  color: #e83e8c;
+  font-size: 0.9em;
+  border: 1px solid #e0e6ed;
+}
+
+.markdown-body pre {
+  background: #f5f7fa;
+  border-left: 4px solid #1976d2;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid #e0e6ed;
+}
+
+.markdown-body pre code {
+  background: none;
+  padding: 0;
+  color: #2c3e50;
+  border: none;
+}
+
+.markdown-body blockquote {
+  border-left: 4px solid #1976d2;
+  margin: 12px 0;
+  padding-left: 16px;
+  color: #666;
+  font-style: italic;
+  background: #f9f9f9;
+  padding: 12px;
+  border-radius: 4px;
+}
+
+.markdown-body strong {
+  font-weight: 700;
+  color: #1565c0;
+}
+
+.markdown-body em {
+  font-style: italic;
+  color: #d32f2f;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 2px dashed #ccc;
+  margin: 16px 0;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid #ddd;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: #1976d2;
+  color: white;
+  font-weight: 700;
+}
+
+.markdown-body tr:nth-child(even) {
+  background: #f9f9f9;
+}
+
+.markdown-body tr:hover {
+  background: #f0f5ff;
 }
 
 .loading {
-  animation: blink 1.4s infinite;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-@keyframes blink {
-  0%, 20%, 50%, 80%, 100% { opacity: 1; }
-  40% { opacity: 0.5; }
-  60% { opacity: 0.7; }
+.loading::after {
+  content: "";
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  animation: ellipsis 1.4s infinite;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+@keyframes ellipsis {
+  0%, 20%, 50%, 80%, 100% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0.5;
+  }
+  60% {
+    opacity: 0.7;
+  }
 }
 
 .input-area {
-  border-top: 1px solid #eee;
+  border-top: 1px solid #e0e0e0;
   padding: 15px;
-  background: #fafbfc;
-}
-
-.suggestions {
-  margin-bottom: 12px;
-  font-size: 0.9em;
-}
-
-.suggest-label {
-  color: #666;
-  display: block;
-  margin-bottom: 8px;
-}
-
-.suggestion-buttons {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.sugg-btn {
-  padding: 6px 12px;
   background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.85em;
-  transition: all 0.2s;
-}
-
-.sugg-btn:hover {
-  background: #667eea;
-  color: white;
-  border-color: #667eea;
 }
 
 .input-group {
   display: flex;
   gap: 10px;
+  align-items: flex-end;
 }
 
 .qa-input {
   flex: 1;
-  padding: 10px;
+  padding: 10px 14px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 0.95em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  resize: none;
+  max-height: 100px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.qa-input:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .send-btn {
@@ -1202,16 +1463,62 @@ const resetForm = () => {
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .send-btn:hover:not(:disabled) {
   background: #5568d3;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .send-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.suggestions {
+  margin-bottom: 12px;
+  font-size: 0.9em;
+  padding: 10px 12px;
+  background: #f5f7ff;
+  border-left: 3px solid #667eea;
+  border-radius: 4px;
+}
+
+.suggest-label {
+  color: #333;
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.suggest-label strong {
+  color: #667eea;
+}
+
+.suggestion-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sugg-btn {
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #667eea;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85em;
+  transition: all 0.2s;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.sugg-btn:hover {
+  background: #667eea;
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
 .species-panel {

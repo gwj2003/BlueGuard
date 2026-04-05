@@ -177,14 +177,14 @@ npm run build
 
 ### 定期备份
 ```bash
-# 备份所有上报的数据
-cp backend/data/locations_record.csv backup/locations_record_$(date +%Y%m%d).csv
+# 备份数据库
+cp backend/data/species.db backup/species_$(date +%Y%m%d).db
 ```
 
 ### 清理旧数据
 ```bash
-# 删除旧记录（谨慎操作）
-rm backend/data/locations_record.csv
+# 删除指定日期之前的上报记录（谨慎操作）
+sqlite3 backend/data/species.db "DELETE FROM location_records WHERE date < '2025-01-01';"
 ```
 
 ## 常见问题 (FAQ)
