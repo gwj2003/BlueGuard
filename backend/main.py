@@ -70,25 +70,43 @@ app.add_middleware(
 )
 
 def _locations_record_file() -> str:
+    """获取用户上报记录的CSV文件路径"""
     return str(get_settings().data_dir / "locations_record.csv")
 
 
 def _resolved_path_under_data_subdir(subdir: str, species: str, ext: str) -> Optional[Path]:
-    """将物种名解析为 data/<subdir> 下的安全路径，禁止目录穿越。"""
+    """
+    将物种名解析为 data/<subdir> 下的安全路径，防止目录穿越攻击
+
+    Args:
+        subdir: 子目录名（如 'gbif_results', 'maxent_results'）
+        species: 物种标识符
+        ext: 文件扩展名（如 '.csv', '.tif'）
+
+    Returns:
+        安全的文件路径，或 None 如果输入非法
+    """
     if not species or not str(species).strip():
         return None
+
     s = str(species).strip()
+
+    # 检查危险字符
     if any(c in s for c in ("/", "\\", "\x00")):
         return None
-    if ".." in s or ":" in s:
+    if ".." in s or ":" in s:  # 防止路径穿越
         return None
+
     root = get_settings().data_dir.resolve()
     base = (root / subdir).resolve()
     candidate = (base / f"{s}{ext}").resolve()
+
+    # 验证解析后的路径仍然在 base 目录下
     try:
         candidate.relative_to(base)
     except ValueError:
         return None
+
     return candidate
 
 
@@ -108,6 +126,12 @@ def read_root():
 
 # ========== 物种相关 API ==========
 def _list_gbif_species_basenames():
+    """
+    扫描 GBIF 结果目录，获取所有物种名称列表
+
+    Returns:
+        物种名称列表（不含 .csv 扩展名），按字母排序
+    """
     gbif_dir = str(get_settings().data_dir / "gbif_results")
     if not os.path.exists(gbif_dir):
         return []
@@ -119,16 +143,31 @@ def _list_gbif_species_basenames():
 
 
 def _resolve_species_for_graph_qa(raw: str):
-    """与 GBIF 文件名对齐，便于图谱侧用 CONTAINS 命中；返回 (规范名或原串, 是否在平台列表中)。"""
+    """
+    规范物种名称，与 GBIF 文件名对齐
+    用于知识图谱查询时的物种匹配
+
+    Args:
+        raw: 用户输入的物种名（可能有大小写混淆）
+
+    Returns:
+        (规范名或原串, 是否在平台列表中)
+    """
     s = (raw or "").strip()
     if not s:
         return "", False
+
     names = _list_gbif_species_basenames()
+
+    # 精确匹配
     if s in names:
         return s, True
+
+    # 不区分大小写的匹配
     by_lower = {n.lower(): n for n in names}
     if s.lower() in by_lower:
         return by_lower[s.lower()], True
+
     return s, False
 
 
@@ -177,23 +216,39 @@ def get_species_info(species: str):
 
 # ========== 地理位置相关 API ==========
 def _get_locations_list(species: str) -> list:
-    """读取 GBIF CSV 为点位列表；物种标识不合法时抛出 HTTPException。"""
+    """
+    从 GBIF CSV 文件读取物种分布位置数据
+
+    Args:
+        species: 物种名称，必须是合法的物种标识符
+
+    Returns:
+        位置列表，每项包含: {"latitude", "longitude", "location_name"}
+
+    Raises:
+        HTTPException: 物种标识非法时返回 400
+    """
     gbif_path = _resolved_path_under_data_subdir("gbif_results", species, ".csv")
     if gbif_path is None:
         raise HTTPException(status_code=400, detail="无效的物种标识")
+
     locations = []
     df = load_csv_for_gbif_file(str(gbif_path))
+
     if df is not None:
         try:
+            # 支持多种列名格式
             lat_cols = ['decimalLatitude', 'latitude', 'lat']
             lon_cols = ['decimalLongitude', 'longitude', 'lon', 'lng']
             lat_col = next((col for col in lat_cols if col in df.columns), None)
             lon_col = next((col for col in lon_cols if col in df.columns), None)
+
             if lat_col and lon_col:
                 for _, row in df.iterrows():
                     try:
                         lat = float(row[lat_col])
                         lon = float(row[lon_col])
+                        # 验证坐标范围有效性
                         if -90 <= lat <= 90 and -180 <= lon <= 180:
                             locations.append({
                                 "latitude": lat,
@@ -204,6 +259,7 @@ def _get_locations_list(species: str) -> list:
                         continue
         except Exception as e:
             print(f"Error parsing dataframe: {e}")
+
     return locations
 
 
@@ -354,16 +410,29 @@ def reverse_geocode(lat: float, lon: float):
         raise HTTPException(status_code=500, detail=f"逆向地理编码失败: {e}")
 
 # ========== 知识问答 API ==========
+
 @app.post("/api/qa")
 def qa_question(request: QuestionRequest):
-    """知识图谱问答（模板命中时减少一次 Cypher 生成 LLM；结果带 TTL 缓存）"""
+    """
+    知识图谱问答接口
+
+    支持两种模式：
+    1. 知识开接：直接从 Neo4j 知识图谱查询
+    2. 降级模式：如果图谱不可用，自动使用 LLM 离线回答
+
+    性能优化：支持 TTL 缓存，相同问题不重复计算
+    """
     if not request.question or not request.question.strip():
         raise HTTPException(status_code=400, detail="问题不能为空")
+
     q = request.question.strip()
     names = _list_gbif_species_basenames()
+
+    # 检查缓存
     cached = qa_cache.get(q)
     if cached:
         return cached
+
     try:
         response = invoke_qa(q, names)
         out = {
@@ -373,15 +442,17 @@ def qa_question(request: QuestionRequest):
         }
         qa_cache.set(q, out)
         return out
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         print(f"QA Error: {e}")
         raise HTTPException(status_code=503, detail=f"暂时无法回答: {type(e).__name__}")
 
+
 @app.get("/api/qa/suggestions/{species}")
 def get_qa_suggestions(species: str):
-    """获取针对该物种的建议问题"""
+    """获取针对某个物种的预设建议问题"""
     suggestions = [
         f"介绍一下 {species}",
         f"{species} 的危害是什么？",
@@ -392,10 +463,23 @@ def get_qa_suggestions(species: str):
     return {"suggestions": suggestions}
 
 # ========== 数据上报 API ==========
+
 @app.post("/api/record/location")
 def record_location(record: LocationRecord):
-    """上报新的物种位置记录"""
+    """
+    上报新的物种分布位置
+
+    验证：
+    - 坐标必须在中国境内（使用省界 GeoJSON）
+    - 坐标范围应在合法范围内
+    - 自动记录时间戳
+
+    Returns:
+        {"status": "success", "message": "记录已保存"}
+    """
     loc_file = _locations_record_file()
+
+    # 先验证坐标在中国范围内
     inside = point_in_china(record.longitude, record.latitude)
     if inside is None:
         raise HTTPException(
@@ -407,7 +491,9 @@ def record_location(record: LocationRecord):
             status_code=400,
             detail="坐标须位于中国境内（与省级地图使用的省界范围一致）。",
         )
+
     try:
+        # 初始化 CSV 文件（如果不存在）
         if not os.path.exists(loc_file):
             Path(loc_file).parent.mkdir(parents=True, exist_ok=True)
             with open(loc_file, "w", newline="", encoding="utf-8") as f:
@@ -416,6 +502,7 @@ def record_location(record: LocationRecord):
                     ["species", "latitude", "longitude", "location_name", "date", "timestamp"]
                 )
 
+        # 追加新记录
         with open(loc_file, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(
@@ -428,14 +515,17 @@ def record_location(record: LocationRecord):
                     datetime.now().isoformat(),
                 ]
             )
+
         return {"status": "success", "message": "记录已保存"}
+
     except Exception as e:
         print(f"Record Error: {e}")
         raise HTTPException(status_code=500, detail=f"保存失败: {e}")
 
+
 @app.get("/api/records")
 def get_all_records():
-    """获取所有上报的记录"""
+    """获取所有用户上报的记录"""
     loc_file = _locations_record_file()
     try:
         if os.path.exists(loc_file):

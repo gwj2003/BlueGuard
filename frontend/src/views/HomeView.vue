@@ -261,7 +261,9 @@ import 'leaflet.heat' // 需要安装 leaflet.heat 插件
 
 const API_BASE = '/api'
 
-/** 统一错误体：{ error: { code, message } } 或 FastAPI detail */
+/**
+ * 解析API错误信息，兼容多种错误格式
+ */
 const apiErrorMessage = (data) => {
   if (data?.error?.message != null) {
     const m = data.error.message
@@ -269,6 +271,48 @@ const apiErrorMessage = (data) => {
   }
   if (data?.detail != null) return String(data.detail)
   return ''
+}
+
+/**
+ * 获取底图配置
+ * @param {string} basemap - 底图类型: 'osm', 'esri', 'gaode_satellite', 'gaode_satellite_annotated'
+ * @returns {Array} Leaflet 图层数组
+ */
+const getBasemapLayers = (basemap) => {
+  const layers = []
+
+  switch(basemap) {
+    case 'osm':
+      layers.push(L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+      }))
+      break
+    case 'esri':
+      layers.push(L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri...',
+        maxZoom: 18
+      }))
+      break
+    case 'gaode_satellite':
+      layers.push(L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+        attribution: 'Tiles &copy; 高德地图 AMap',
+        maxZoom: 18
+      }))
+      break
+    case 'gaode_satellite_annotated':
+      // 先铺底图再叠加标注
+      layers.push(L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+        attribution: 'Tiles &copy; 高德地图 AMap',
+        maxZoom: 18
+      }))
+      layers.push(L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+        maxZoom: 18
+      }))
+      break
+  }
+
+  return layers
 }
 
 // =============== 全局状态 ===============
@@ -405,35 +449,12 @@ const changeBasemap = () => {
     map.removeLayer(tileLayer)
   }
 
-  // 【关键技巧】使用 LayerGroup 打包底图，方便整体添加和移除
+  // 使用 LayerGroup 方便整体管理
   tileLayer = L.layerGroup().addTo(map)
 
-  if (selectedBasemap.value === 'osm') {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 18
-    }).addTo(tileLayer)
-  } else if (selectedBasemap.value === 'esri') {
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri...',
-      maxZoom: 18
-    }).addTo(tileLayer)
-  } else if (selectedBasemap.value === 'gaode_satellite') {
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
-      attribution: 'Tiles &copy; 高德地图 AMap',
-      maxZoom: 18
-    }).addTo(tileLayer)
-  } else if (selectedBasemap.value === 'gaode_satellite_annotated') {
-    // 【核心修复】先铺底部的实景图 (style=6)，再盖上透明标注层 (style=8)
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
-      attribution: 'Tiles &copy; 高德地图 AMap',
-      maxZoom: 18
-    }).addTo(tileLayer)
-    
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
-      maxZoom: 18
-    }).addTo(tileLayer)
-  }
+  // 获取对应底图的所有图层并添加
+  const layers = getBasemapLayers(selectedBasemap.value)
+  layers.forEach(layer => layer.addTo(tileLayer))
 }
 
 const changeLayer = async () => {
@@ -605,35 +626,12 @@ const changeReportBasemap = () => {
   if (reportTileLayer) {
     reportMap.removeLayer(reportTileLayer)
   }
-  
+
   reportTileLayer = L.layerGroup().addTo(reportMap)
 
-  if (reportBasemap.value === 'osm') {
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 18
-    }).addTo(reportTileLayer)
-  } else if (reportBasemap.value === 'esri') {
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri',
-      maxZoom: 18
-    }).addTo(reportTileLayer)
-  } else if (reportBasemap.value === 'gaode_satellite') {
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
-      attribution: 'Tiles &copy; 高德地图 AMap',
-      maxZoom: 18
-    }).addTo(reportTileLayer)
-  } else if (reportBasemap.value === 'gaode_satellite_annotated') {
-    // 叠加双图层
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
-      attribution: 'Tiles &copy; 高德地图 AMap',
-      maxZoom: 18
-    }).addTo(reportTileLayer)
-    
-    L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
-      maxZoom: 18
-    }).addTo(reportTileLayer)
-  }
+  // 复用底图配置函数
+  const layers = getBasemapLayers(reportBasemap.value)
+  layers.forEach(layer => layer.addTo(reportTileLayer))
 }
 
 const setReportMarker = (lat, lng) => {

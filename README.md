@@ -5,10 +5,24 @@
 - `backend/` - Python FastAPI 后端服务
 - `frontend/` - Vue 3 前端应用
 
-## 快速启动
+## ⚡ 快速启动
 
-### 1. 后端启动
+### 方式一：自动启动（推荐）
 
+**Windows:**
+```bash
+start.bat
+```
+
+**Linux/macOS:**
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+### 方式二：手动启动
+
+**后端启动：**
 ```bash
 cd backend
 
@@ -18,27 +32,24 @@ venv\Scripts\activate  # Windows
 source venv/bin/activate  # Linux/Mac
 
 # 安装依赖
-pip install -r requirements-app.txt.txt
+pip install -r requirements.txt
 
 # 启动服务
-uvicorn main:app --reload --port 8000 --host 0.0.0.0
+uvicorn main:app --reload --port 8000
 ```
 
-后端将在 `http://localhost:8000` 运行
-
-### 2. 前端启动
-
+**前端启动（新终端）：**
 ```bash
 cd frontend
-
-# 安装依赖
 npm install
-
-# 开发服务
 npm run dev
 ```
 
-前端将在 `http://localhost:5173` 运行
+### 访问应用
+
+- **前端**: http://localhost:5173
+- **后端 API**: http://localhost:8000
+- **API 文档**: http://localhost:8000/docs
 
 ## 功能说明
 
