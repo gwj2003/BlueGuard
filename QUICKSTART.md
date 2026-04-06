@@ -218,6 +218,44 @@ curl -X POST http://localhost:8000/api/record/location `
 
 ---
 
+## ✅ 验证服务运行正常
+
+### 后端验证
+```bash
+# 检查后端是否在运行
+curl http://localhost:8000/
+
+# 预期输出：
+# {"message": "后端服务已启动！可以开始查询水生外来入侵物种了！"}
+```
+
+### 前端验证
+在浏览器打开 http://localhost:5173/，应显示应用主界面。
+
+### 快速功能测试
+```bash
+# 测试物种列表
+curl http://localhost:8000/api/species
+
+# 测试知识问答
+curl -X POST http://localhost:8000/api/qa \
+  -H "Content-Type: application/json" \
+  -d "{\"question\": \"福寿螺有什么危害？\"}"
+
+# 测试数据上报
+curl -X POST http://localhost:8000/api/record/location \
+  -H "Content-Type: application/json" \
+  -d "{\
+    \"species\": \"福寿螺\",\
+    \"latitude\": 30.5,\
+    \"longitude\": 114.1,\
+    \"location_name\": \"武汉市\",\
+    \"date\": \"2024-04-01\"\
+  }"
+```
+
+---
+
 ## ❌ 常见问题排查
 
 | 问题 | 解决方案 |
@@ -227,6 +265,8 @@ curl -X POST http://localhost:8000/api/record/location `
 | AI 问答失败 | 检查 API Key 配置，网络连接 |
 | npm install 失败 | 删除 `node_modules` 和 `package-lock.json` 后重试 |
 | Python 依赖缺失 | 运行 `pip install -r requirements.txt` |
+| ModuleNotFoundError | 运行 `pip install -r requirements.txt` 重新安装依赖 |
+| Neo4j 连接失败 | 可忽略，应用会自动切换到 LLM 离线模式 |
 
 ---
 
