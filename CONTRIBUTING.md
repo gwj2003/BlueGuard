@@ -2,7 +2,7 @@
 
 ## 快速开始
 
-详见 [QUICKSTART.md](QUICKSTART.md) 完整的环境设置步骤。
+详见 [SETUP_GUIDE.md](SETUP_GUIDE.md) 完整的环境设置步骤。
 
 ---
 
@@ -95,8 +95,7 @@ docs(readme): 更新架构说明
 
 ### 前端
 - 使用 **Composition API** 编写 Vue 3 组件
-- 业务逻辑提取到 `composables/` 中(
-`use*` 函数)
+- 业务逻辑提取到 `composables/` 中（`use*` 函数）
 - 遵循 Prettier 格式规范（自动检查）
 
 ### 后端
@@ -167,7 +166,7 @@ git commit -m "chore: update pre-commit hooks"
 
 ## 测试
 
-详见 [QUICKSTART.md](QUICKSTART.md#-验证服务运行正常) 的验证部分。
+详见 [SETUP_GUIDE.md](SETUP_GUIDE.md) 的验证部分。
 
 ---
 

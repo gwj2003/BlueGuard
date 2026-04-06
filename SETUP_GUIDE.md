@@ -14,7 +14,7 @@
 
 ### 前置要求
 
-1. **Python 3.8+**（推荐 3.10+）
+1. **Python 3.12**（与后端启动脚本一致）
    - 下载：https://www.python.org/downloads/
    - 验证：`python --version`
 
@@ -24,7 +24,8 @@
 
 3. **Neo4j 数据库**（可选，用于知识图谱）
    - 下载：https://neo4j.com/download/
-   - 或运行：`start-neo4j.bat`
+   - 或运行：`scripts\start-neo4j.bat`（根目录 `start-neo4j.bat` 仍可用）
+   - 可选：若安装在自定义路径，设置 `NEO4J_HOME`（安装目录）或 `NEO4J_BIN`（bin 目录/neo4j.bat 路径）
 
 4. **ngrok**（可选，用于公网访问）
    - 下载：https://ngrok.com/download
@@ -55,6 +56,8 @@ ngrok authtoken <你的-token>
 start.bat
 ```
 
+说明：脚本会自动检查 Neo4j `7687` 端口；未启动时会尝试自动拉起 Neo4j。
+
 等待终端输出：
 ```
 📱 前端地址：http://localhost:5173
@@ -67,9 +70,7 @@ start.bat
 #### 终端 1 - 启动后端
 
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+scripts\run_backend.bat
 ```
 
 预期输出：
@@ -81,9 +82,7 @@ INFO:     Application startup complete
 #### 终端 2 - 启动前端
 
 ```bash
-cd frontend
-npm install
-npm run dev
+scripts\run_frontend.bat
 ```
 
 预期输出：
@@ -109,11 +108,13 @@ VITE v4.x.x  ready in xx ms
 
 如果要让其他电脑通过互联网访问你的应用，需要使用 ngrok 隧道。
 
-#### 第一步：启动 Neo4j（可选）
+#### 第一步：启动 Neo4j（可选，推荐提前启动）
 
 ```bash
-start-neo4j.bat
+scripts\start-neo4j.bat
 ```
+
+如果跳过这一步，`start-with-ngrok.bat` 也会在启动流程里自动检测并尝试拉起 Neo4j。
 
 #### 第二步：一键启动所有服务（推荐）
 
@@ -153,15 +154,13 @@ Forwarding   https://xxxx-xxxx-xxxx.ngrok-free.dev → http://localhost:5173
 
 ```bash
 # 终端 1：后端
-cd backend
-uvicorn main:app --host 0.0.0.0 --port 8000
+scripts\run_backend.bat
 
 # 终端 2：ngrok（暴露前端端口 5173）
 ngrok http 5173
 
 # 终端 3：前端
-cd frontend
-npm run dev
+scripts\run_frontend.bat
 ```
 
 **重要：** 暴露 `5173`（前端）而不是 `8000`（后端），原因见下方"背景原理"

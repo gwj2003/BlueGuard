@@ -1,4 +1,5 @@
 import re
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,6 +9,12 @@ from api.router import api_router
 from config import get_settings
 from database import ensure_seed_data
 from geo_data import load_china_geojson
+
+
+def _wildcard_origin_to_regex(origin: str) -> str:
+    """Convert wildcard origins (e.g. https://*.ngrok.io) to anchored regex."""
+    escaped = re.escape(origin)
+    return f"^{escaped.replace(r'\\*', '.*')}$"
 
 
 def create_app() -> FastAPI:
@@ -30,10 +37,7 @@ def create_app() -> FastAPI:
     
     if regex_patterns:
         # 转换 https://*.ngrok.io 为正则表达式
-        regex_pattern = "|".join(
-            pattern.replace("https://*.", "https://.*\\.").replace(".", r"\.")
-            for pattern in regex_patterns
-        )
+        regex_pattern = "|".join(_wildcard_origin_to_regex(pattern) for pattern in regex_patterns)
         cors_kwargs["allow_origin_regex"] = regex_pattern
     
     if simple_origins:

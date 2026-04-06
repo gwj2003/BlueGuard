@@ -71,9 +71,7 @@ uvicorn main:app --host 0.0.0.0 --port 8001
 
 **解决**：
 ```bash
-cd frontend
-npm install
-npm run dev
+scripts\run_frontend.bat
 ```
 
 **原因 2**：端口 5173 被占用
@@ -101,7 +99,11 @@ npm run dev -- --port 5174
    ```bash
    .\start.bat
    ```
-3. 如果依然失败，改用手动启动（见 SETUP_GUIDE.md）
+3. 如果依然失败，改用脚本手动启动：
+   ```bash
+   scripts\run_backend.bat
+   scripts\run_frontend.bat
+   ```
 
 ---
 
@@ -240,9 +242,18 @@ npm run dev -- --port 5174
 **解决**：
 1. 启动 Neo4j：
    ```bash
-   start-neo4j.bat
+   scripts\start-neo4j.bat
    ```
    或者手动启动 Neo4j Desktop 应用
+
+   如果 Neo4j 安装在非默认目录，可先设置环境变量再重试：
+   ```bash
+   set NEO4J_HOME=<你的 Neo4j 安装目录>
+   ```
+   或：
+   ```bash
+   set NEO4J_BIN=<你的 Neo4j bin 目录或 neo4j.bat 完整路径>
+   ```
 
 2. 验证 Neo4j 运行状态：
    - 访问 http://localhost:7474（Neo4j Web 界面）
@@ -283,7 +294,7 @@ npm run dev
 或者（Windows）：
 ```bash
 cd frontend
-del /s node_modules
+rmdir /s /q node_modules
 del package-lock.json
 npm install
 npm run dev
@@ -362,8 +373,8 @@ npm --version
 ngrok version
 
 # 清理和重新安装
-cd backend && pip install -r requirements.txt
-cd frontend && npm install
+scripts\run_backend.bat
+scripts\run_frontend.bat
 
 # 查找占用的端口（Windows）
 netstat -ano | findstr :8000

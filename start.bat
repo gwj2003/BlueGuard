@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 chcp 65001 >nul
 
 cd /d "%~dp0"
@@ -7,11 +7,9 @@ cd /d "%~dp0"
 set "ROOT_DIR=%~dp0"
 set "BACKEND_RUNNER=%ROOT_DIR%scripts\run_backend.bat"
 set "FRONTEND_RUNNER=%ROOT_DIR%scripts\run_frontend.bat"
-set "LAUNCH_LOG=%ROOT_DIR%start-launcher.log"
+set "NEO4J_CHECKER=%ROOT_DIR%scripts\ensure_neo4j.bat"
 set "FRONTEND_WAIT_MAX=120"
-
-echo [%date% %time%] launcher_start>"%LAUNCH_LOG%"
-echo [%date% %time%] root=%ROOT_DIR%>>"%LAUNCH_LOG%"
+set "NEO4J_WAIT_MAX=45"
 
 echo.
 echo ====================================================
@@ -21,47 +19,40 @@ echo.
 
 REM Check dependencies
 echo [*] Checking dependencies...
-echo [%date% %time%] check_runners>>"%LAUNCH_LOG%"
 if not exist "%BACKEND_RUNNER%" (
     echo [ERROR] Missing file: %BACKEND_RUNNER%
-    echo [%date% %time%] missing_backend_runner>>"%LAUNCH_LOG%"
     goto :fail
 )
 echo [OK] Backend runner found.
 
 if not exist "%FRONTEND_RUNNER%" (
     echo [ERROR] Missing file: %FRONTEND_RUNNER%
-    echo [%date% %time%] missing_frontend_runner>>"%LAUNCH_LOG%"
     goto :fail
 )
 echo [OK] Frontend runner found.
 
-echo [%date% %time%] check_python>>"%LAUNCH_LOG%"
 python --version >nul 2>&1
 if errorlevel 1 (
     if not exist "%ROOT_DIR%backend\env\python.exe" (
         echo [ERROR] Python not found in PATH and local env is missing.
         echo         Expected fallback: %ROOT_DIR%backend\env\python.exe
-        echo [%date% %time%] python_missing>>"%LAUNCH_LOG%"
         goto :fail
     )
 )
-echo [OK] Python check passed.
+echo [OK] Python check passed. npm will be checked in frontend window.
 
-echo [%date% %time%] skip_npm_precheck>>"%LAUNCH_LOG%"
 echo [OK] Skipping npm pre-check in launcher (frontend window will validate npm).
-
-echo [OK] Python and Node.js are available.
 echo [OK] Root: %ROOT_DIR%
+echo.
+
+call :ensure_neo4j_running
 echo.
 
 REM Start backend
 echo [*] Starting backend on port 8000...
-echo [%date% %time%] start_backend>>"%LAUNCH_LOG%"
 start "Backend - BlueGuard" "%BACKEND_RUNNER%"
 if errorlevel 1 (
     echo [ERROR] Failed to launch backend window.
-    echo [%date% %time%] start_backend_failed>>"%LAUNCH_LOG%"
     goto :fail
 )
 
@@ -69,11 +60,9 @@ timeout /t 3 /nobreak > nul
 
 REM Start frontend
 echo [*] Starting frontend on port 5173...
-echo [%date% %time%] start_frontend>>"%LAUNCH_LOG%"
 start "Frontend - BlueGuard" "%FRONTEND_RUNNER%"
 if errorlevel 1 (
     echo [ERROR] Failed to launch frontend window.
-    echo [%date% %time%] start_frontend_failed>>"%LAUNCH_LOG%"
     goto :fail
 )
 
@@ -83,7 +72,6 @@ REM First run may spend extra time in npm install.
 if not exist "%ROOT_DIR%frontend\node_modules\" (
     set "FRONTEND_WAIT_MAX=300"
     echo [INFO] First frontend setup detected. Wait timeout set to 300 seconds.
-    echo [%date% %time%] frontend_first_run_wait_300s>>"%LAUNCH_LOG%"
 )
 
 REM Clear screen and display info
@@ -116,31 +104,36 @@ goto wait_frontend
 
 :frontend_ready
 echo [OK] Frontend is listening on port 5173.
-echo [%date% %time%] frontend_ready>>"%LAUNCH_LOG%"
 goto open_browser
 
 :frontend_timeout
 echo [WARN] Frontend did not listen on port 5173 within %FRONTEND_WAIT_MAX% seconds.
 echo [WARN] This is common on first run while npm install is still running.
 echo [WARN] Browser will still be opened. Check frontend window logs.
-echo [%date% %time%] frontend_timeout>>"%LAUNCH_LOG%"
 
 :open_browser
 
 REM Open browser
 echo [*] Opening http://localhost:5173
 start "" "http://localhost:5173"
-echo [%date% %time%] browser_opened>>"%LAUNCH_LOG%"
 
 echo.
 echo Launcher finished. You can close this window.
 pause
 exit /b 0
 
+:ensure_neo4j_running
+if not exist "%NEO4J_CHECKER%" (
+    echo [WARN] Neo4j checker not found: %NEO4J_CHECKER%
+    echo [WARN] Continuing startup. QA graph features may be degraded.
+    exit /b 0
+)
+
+call "%NEO4J_CHECKER%" "%ROOT_DIR%" "%NEO4J_WAIT_MAX%"
+exit /b 0
+
 :fail
 echo.
-echo [%date% %time%] fail_exit>>"%LAUNCH_LOG%"
-echo [INFO] See log: %LAUNCH_LOG%
 echo Launcher stopped due to missing dependencies or invalid environment.
 pause
 exit /b 1

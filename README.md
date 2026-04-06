@@ -10,6 +10,11 @@
 - `frontend/` 前端界面
 - `start.bat` Windows 一键启动
 
+## 环境要求
+
+- Python 3.12（与 `scripts/run_backend.bat` 一致）
+- Node.js + npm（建议 LTS）
+
 ## 快速启动
 
 ### 方式一：一键启动（推荐）
@@ -19,25 +24,24 @@ Windows:
 start.bat
 ```
 
+说明：`start.bat` 会自动检查 Neo4j `7687` 端口，未启动时会尝试自动拉起 Neo4j。
+
 ### 方式二：手动启动
 
-后端：
+后端（终端 1，复用脚本）：
 ```bash
-cd backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+scripts\run_backend.bat
 ```
 
-前端（新终端）：
+前端（终端 2，复用脚本）：
 ```bash
-cd frontend
-npm install
-npm run dev
+scripts\run_frontend.bat
 ```
 
 访问地址：
-
-## 项目架构
+- 前端: http://localhost:5173
+- 后端: http://localhost:8000
+- API 文档: http://localhost:8000/docs
 
 ## 📚 文档
 
@@ -167,7 +171,7 @@ python migrate_csv_to_db.py
 
 ## 测试
 
-详细测试步骤见 `TESTING.md`。
+启动与验证步骤见 `SETUP_GUIDE.md`，常见问题见 `TROUBLESHOOTING.md`。
 
 ## 说明
 
