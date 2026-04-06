@@ -84,32 +84,8 @@ exit /b 0
 :ensure_venv
 call :resolve_env_python
 if exist "%VENV_PY%" (
-  set "CURR_PY_VER="
-  set "CURR_PY_FULL="
-  for /f "tokens=2" %%v in ('"%VENV_PY%" --version') do set "CURR_PY_FULL=%%v"
-  if defined CURR_PY_FULL (
-    for /f "tokens=1,2 delims=." %%a in ("%CURR_PY_FULL%") do set "CURR_PY_VER=%%a.%%b"
-  )
-
-  if not defined CURR_PY_VER (
-    echo [Backend][ERROR] Failed to detect Python version from existing environment.
-    echo [Backend] Python path: %VENV_PY%
-    exit /b 1
-  )
-
-  call :is_allowed_python "%CURR_PY_VER%"
-  if errorlevel 1 (
-    echo [Backend] Existing virtual environment uses Python %CURR_PY_VER% which is not supported by current pinned dependencies.
-    echo [Backend] Recreating virtual environment blueguard with a compatible Python version...
-    rmdir /s /q "%VENV_DIR%"
-    if exist "%VENV_DIR%" (
-      echo [Backend][ERROR] Failed to remove old virtual environment at %VENV_DIR%.
-      exit /b 1
-    )
-  ) else (
-    echo [Backend] Reusing existing virtual environment: blueguard ^(Python %CURR_PY_VER%^)
-    exit /b 0
-  )
+  echo [Backend] Reusing existing virtual environment: blueguard
+  exit /b 0
 )
 
 call :pick_python_for_venv
@@ -205,6 +181,6 @@ exit /b 0
 
 :is_allowed_python
 if /i "%~1"=="%ALLOWED_PY_1%" exit /b 0
-if /i "%~1"=="%ALLOWED_PY_2%" exit /b 0
-if /i "%~1"=="%ALLOWED_PY_3%" exit /b 0
+if not "%ALLOWED_PY_2%"=="" if /i "%~1"=="%ALLOWED_PY_2%" exit /b 0
+if not "%ALLOWED_PY_3%"=="" if /i "%~1"=="%ALLOWED_PY_3%" exit /b 0
 exit /b 1

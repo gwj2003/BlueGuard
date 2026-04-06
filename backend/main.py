@@ -1,3 +1,4 @@
+import re
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -5,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from api.errors import register_exception_handlers
 from api.router import api_router
 from config import get_settings
-from database import init_db
+from database import ensure_seed_data
 from geo_data import load_china_geojson
 
 
@@ -15,13 +16,30 @@ def create_app() -> FastAPI:
 
     register_exception_handlers(app)
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allow_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    # 处理 CORS 配置：支持正则表达式模式和通配符
+    cors_kwargs = {
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    
+    # 检查是否有正则表达式或通配符模式
+    allow_origins_list = settings.allow_origins if isinstance(settings.allow_origins, list) else [settings.allow_origins]
+    regex_patterns = [origin for origin in allow_origins_list if origin.startswith("https://*.")]
+    simple_origins = [origin for origin in allow_origins_list if not origin.startswith("https://*.")]
+    
+    if regex_patterns:
+        # 转换 https://*.ngrok.io 为正则表达式
+        regex_pattern = "|".join(
+            pattern.replace("https://*.", "https://.*\\.").replace(".", r"\.")
+            for pattern in regex_patterns
+        )
+        cors_kwargs["allow_origin_regex"] = regex_pattern
+    
+    if simple_origins:
+        cors_kwargs["allow_origins"] = simple_origins
+    
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
 
     app.mount("/static", StaticFiles(directory=str(settings.data_dir)), name="static")
     app.include_router(api_router)
@@ -30,7 +48,7 @@ def create_app() -> FastAPI:
     async def _startup() -> None:
         settings.runtime_dir.mkdir(parents=True, exist_ok=True)
         load_china_geojson(force_reload=False)
-        init_db()
+        ensure_seed_data()
 
     @app.get("/")
     def read_root():

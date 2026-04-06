@@ -8,6 +8,7 @@ set "ROOT_DIR=%~dp0"
 set "BACKEND_RUNNER=%ROOT_DIR%scripts\run_backend.bat"
 set "FRONTEND_RUNNER=%ROOT_DIR%scripts\run_frontend.bat"
 set "LAUNCH_LOG=%ROOT_DIR%start-launcher.log"
+set "FRONTEND_WAIT_MAX=120"
 
 echo [%date% %time%] launcher_start>"%LAUNCH_LOG%"
 echo [%date% %time%] root=%ROOT_DIR%>>"%LAUNCH_LOG%"
@@ -78,6 +79,13 @@ if errorlevel 1 (
 
 timeout /t 5 /nobreak > nul
 
+REM First run may spend extra time in npm install.
+if not exist "%ROOT_DIR%frontend\node_modules\" (
+    set "FRONTEND_WAIT_MAX=300"
+    echo [INFO] First frontend setup detected. Wait timeout set to 300 seconds.
+    echo [%date% %time%] frontend_first_run_wait_300s>>"%LAUNCH_LOG%"
+)
+
 REM Clear screen and display info
 cls
 echo.
@@ -102,7 +110,7 @@ set /a WAIT_COUNT=0
 netstat -ano | findstr ":5173" | findstr "LISTENING" >nul
 if not errorlevel 1 goto frontend_ready
 set /a WAIT_COUNT+=1
-if %WAIT_COUNT% GEQ 120 goto frontend_timeout
+if %WAIT_COUNT% GEQ %FRONTEND_WAIT_MAX% goto frontend_timeout
 timeout /t 1 /nobreak >nul
 goto wait_frontend
 
@@ -112,7 +120,8 @@ echo [%date% %time%] frontend_ready>>"%LAUNCH_LOG%"
 goto open_browser
 
 :frontend_timeout
-echo [WARN] Frontend did not listen on port 5173 within 120 seconds.
+echo [WARN] Frontend did not listen on port 5173 within %FRONTEND_WAIT_MAX% seconds.
+echo [WARN] This is common on first run while npm install is still running.
 echo [WARN] Browser will still be opened. Check frontend window logs.
 echo [%date% %time%] frontend_timeout>>"%LAUNCH_LOG%"
 
