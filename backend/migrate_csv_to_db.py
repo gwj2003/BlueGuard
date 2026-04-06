@@ -98,7 +98,7 @@ def migrate_csv_to_db():
     print("=" * 60)
     print()
     print("📊 数据库位置:")
-    print(f"   {get_settings().data_dir}/species.db")
+    print(f"   {get_settings().runtime_dir / 'species.db'}")
     print()
     print("💡 后续步骤:")
     print("   1. 不再需要 CSV 文件可以删除或备份")

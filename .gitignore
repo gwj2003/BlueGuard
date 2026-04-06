@@ -1,4 +1,4 @@
-# 通用
+# Environment and secrets
 .env
 .env.*.local
 *.key
@@ -12,31 +12,34 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
-.env/
 env/
+backend/env/
 
 # Node.js
 node_modules/
 dist/
 dist-ssr/
+
+# Editors
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-
-# 构建产物
-coverage/
-*.log
-*.local
-
-# 编辑器
 .idea/
 *.suo
 *.sw?
 
-# 系统
+# Build and logs
+coverage/
+*.log
+*.local
+
+# System
 .DS_Store
 Thumbs.db
 
-# 业务数据
-# 本项目数据体积大，默认不纳入版本控制
+# Project data
+backend/runtime/
+!backend/runtime/
+backend/runtime/*
+!backend/runtime/README.md
 backend/data/
