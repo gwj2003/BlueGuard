@@ -4,11 +4,11 @@ from fastapi import Header, HTTPException
 from sqlalchemy.orm import Session
 
 from config import get_settings
-from geo_data import geo_source, get_china_geojson, invalidate_geo_cache, load_china_geojson
-from graph_chain import get_neo4j_graph, invalidate_chain
-from qa_cache import qa_cache
+from domain.geo_data import geo_source, get_china_geojson, invalidate_geo_cache, load_china_geojson
+from domain.graph_chain import get_neo4j_graph, invalidate_chain
+from domain.qa_cache import qa_cache
 from repositories.stats_repository import get_db_stats
-from species_data import clear_csv_cache
+from domain.species_data import clear_csv_cache
 
 
 def require_admin(x_admin_key: str | None = Header(None, alias="X-Admin-Key")) -> None:

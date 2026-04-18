@@ -76,7 +76,7 @@ scripts\run_frontend.bat
 
 ```bash
 cd backend
-python migrate_csv_to_db.py
+python tools/migrate_csv_to_db.py
 ```
 
 ## ngrok 公网访问

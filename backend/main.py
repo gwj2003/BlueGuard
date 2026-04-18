@@ -8,7 +8,7 @@ from api.errors import register_exception_handlers
 from api.router import api_router
 from config import get_settings
 from database import ensure_seed_data
-from geo_data import load_china_geojson
+from domain.geo_data import load_china_geojson
 
 
 def _wildcard_origin_to_regex(origin: str) -> str:

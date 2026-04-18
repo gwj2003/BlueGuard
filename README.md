@@ -44,12 +44,12 @@
 | `backend/repositories/*.py` | 数据访问层，封装 SQL 或查询逻辑 |
 | `backend/models/*.py` | SQLAlchemy ORM 模型定义 |
 | `backend/schemas/*.py` | 请求/响应模式定义 |
-| `backend/migrate_csv_to_db.py` | 将 CSV 数据导入 SQLite |
-| `backend/import_to_neo4j.py` | 将数据导入 Neo4j 图数据库 |
-| `backend/graph_chain.py` | 图谱问答/推理链路相关逻辑 |
-| `backend/qa_cache.py` | 问答缓存，减少重复计算 |
-| `backend/geo_data.py` | 地理或行政区划数据处理 |
-| `backend/species_data.py` | 物种数据整理、读取或映射 |
+| `backend/tools/migrate_csv_to_db.py` | 将 CSV 数据导入 SQLite |
+| `backend/tools/import_to_neo4j.py` | 将数据导入 Neo4j 图数据库 |
+| `backend/domain/graph_chain.py` | 图谱问答/推理链路相关逻辑 |
+| `backend/domain/qa_cache.py` | 问答缓存，减少重复计算 |
+| `backend/domain/geo_data.py` | 地理或行政区划数据处理 |
+| `backend/domain/species_data.py` | 物种数据整理、读取或映射 |
 | `backend/runtime/README.md` | 说明运行时目录的用途 |
 
 ### 前端
@@ -99,7 +99,9 @@ BlueGuard/
 │   ├── repositories/  # 数据访问
 │   ├── models/        # ORM 模型
 │   ├── schemas/       # 请求/响应模式
-│   └── *.py           # 配置、入口、导入、迁移、图谱、缓存
+│   ├── domain/        # 领域实现（地理、图谱、缓存、物种数据）
+│   ├── tools/         # 数据迁移与图数据库导入脚本
+│   └── *.py           # 配置与入口文件
 ├── frontend/
 │   ├── *.html         # 多页面 HTML 入口
 │   ├── public/        # 旧站点静态资源
@@ -160,7 +162,7 @@ scripts\start-with-ngrok.bat
 
 ```bash
 cd backend
-python migrate_csv_to_db.py
+python tools/migrate_csv_to_db.py
 ```
 
 ## 依赖与规范

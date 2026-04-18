@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+from pathlib import Path
 from neo4j import GraphDatabase
 
 # ================= 1. 配置区域 =================
@@ -9,7 +10,7 @@ NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "******"  # 👈 记得确认密码
 
 # CSV 数据目录
-DATA_DIR = "data/triplets"
+DATA_DIR = str(Path(__file__).resolve().parent.parent / "data" / "triplets")
 
 # ================= 2. 核心逻辑：关系映射 =================
 # 这个字典告诉程序：如果关系是 X，那么目标节点 Entity2 应该是什么标签 (Label)

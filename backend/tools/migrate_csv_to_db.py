@@ -3,7 +3,7 @@
 CSV 到 SQLite 数据库迁移脚本
 
 用法：
-    python migrate_csv_to_db.py
+    python tools/migrate_csv_to_db.py
 
 说明：
     - 自动扫描 backend/data/gbif_results/ 目录中的所有 CSV 文件
@@ -16,7 +16,7 @@ import csv
 from pathlib import Path
 
 # 添加 backend 目录到 Python 路径
-backend_dir = Path(__file__).parent
+backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from database import init_db, bulk_insert_species_data, get_db_stats, SessionLocal

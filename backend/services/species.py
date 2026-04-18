@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from graph_chain import get_chain
+from domain.graph_chain import get_chain
 from repositories.species_repository import list_locations_by_species, list_species_names
 
 

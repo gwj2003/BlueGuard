@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from geo_data import point_in_china
+from domain.geo_data import point_in_china
 from repositories.records_repository import (
     create_location_record as repo_create_location_record,
     list_location_records as repo_list_location_records,

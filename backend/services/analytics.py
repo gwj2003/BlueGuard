@@ -12,7 +12,7 @@ from shapely.geometry import Point
 from sqlalchemy.orm import Session
 
 from config import get_settings
-from geo_data import get_china_gdf, get_china_geojson
+from domain.geo_data import get_china_gdf, get_china_geojson
 from repositories.species_repository import list_locations_by_species
 
 

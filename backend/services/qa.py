@@ -6,8 +6,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from config import get_settings
-from graph_chain import invoke_qa
-from qa_cache import qa_cache
+from domain.graph_chain import invoke_qa
+from domain.qa_cache import qa_cache
 from repositories.species_repository import list_species_names
 
 
