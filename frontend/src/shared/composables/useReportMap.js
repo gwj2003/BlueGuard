@@ -3,7 +3,7 @@ import L from 'leaflet'
 
 import { getJson, postJson } from '@/api/client'
 import { geocodeAddress, reverseGeocodeCoords } from '@/api/geocoding'
-import { applyBasemap } from '@/utils/maps'
+import { applyBasemap, BASEMAP_MAX_ZOOM, BASEMAP_MIN_ZOOM } from '@/utils/maps'
 
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -195,7 +195,10 @@ export const useReportMap = (activeTab) => {
     const initReportMap = () => {
         if (reportMap) return
 
-        reportMap = L.map('report-map').setView([35.0, 105.0], 4)
+        reportMap = L.map('report-map', {
+            minZoom: BASEMAP_MIN_ZOOM,
+            maxZoom: BASEMAP_MAX_ZOOM,
+        }).setView([35.0, 105.0], BASEMAP_MIN_ZOOM)
         reportRecordsLayer = L.layerGroup().addTo(reportMap)
         changeReportBasemap()
         updateReportMapByView()

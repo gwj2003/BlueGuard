@@ -98,18 +98,41 @@ const layerModel = computed({
 
 .control-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #c9d7e6;
-  border-radius: 10px;
-  background: #fff;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1rem;
+  padding-right: 2rem;
+  height: 3rem;
+  border: 1px solid #dadada;
+  border-radius: 0.25rem;
+  background-color: #fff;
+  color: #787976;
+  font: 400 0.875rem/1.375rem 'Open Sans', sans-serif;
+  transition: all 0.2s;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url('/images/down-arrow.png');
+  background-position: 96% 50%;
+  background-repeat: no-repeat;
+}
+
+.control-input:focus {
+  border: 1px solid #a1a1a1;
+  outline: none;
+}
+
+.control-input:hover {
+  border-color: #bfc4ca;
 }
 
 .stats-card {
   margin-top: 10px;
   padding: 16px;
-  border-radius: 14px;
+  border-radius: 0.5rem;
   background: #fff;
   border: 1px solid #d8e4ef;
+  box-shadow: 0 8px 20px rgba(17, 52, 72, 0.08);
 }
 
 .stats-title {
@@ -121,7 +144,7 @@ const layerModel = computed({
   margin-top: 8px;
   font-size: 1.4rem;
   font-weight: 700;
-  color: #154c79;
+  color: #14bf98;
 }
 
 .map-container {

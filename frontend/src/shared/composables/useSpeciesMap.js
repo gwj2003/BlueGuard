@@ -3,7 +3,7 @@ import L from 'leaflet'
 import 'leaflet.heat'
 
 import { getJson } from '@/api/client'
-import { applyBasemap } from '@/utils/maps'
+import { applyBasemap, BASEMAP_MAX_ZOOM, BASEMAP_MIN_ZOOM } from '@/utils/maps'
 
 
 export const useSpeciesMap = (activeTab) => {
@@ -22,7 +22,10 @@ export const useSpeciesMap = (activeTab) => {
     const initMap = () => {
         if (map) return
 
-        map = L.map('map').setView([35, 105], 4)
+        map = L.map('map', {
+            minZoom: BASEMAP_MIN_ZOOM,
+            maxZoom: BASEMAP_MAX_ZOOM,
+        }).setView([35, 105], BASEMAP_MIN_ZOOM)
         markersLayer = L.layerGroup().addTo(map)
         changeBasemap()
         changeLayer()

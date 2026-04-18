@@ -97,7 +97,7 @@ onMounted(async () => {
 
   <LegacyNavbar />
 
-  <header id="header" class="ex-header">
+  <header id="header" class="ex-header case-header">
     <div class="container">
       <div class="row">
         <div class="col-md-12">
@@ -125,7 +125,9 @@ onMounted(async () => {
     <div class="container">
       <div class="row">
         <div class="col-lg-12">
-          <component :is="currentFeatureComponent" />
+          <div class="case-card">
+            <component :is="currentFeatureComponent" />
+          </div>
         </div>
       </div>
     </div>
@@ -154,12 +156,24 @@ body,
   width: 100%;
 }
 
+.case-header {
+  background: linear-gradient(135deg, #113448 0%, #0c6f5a 55%, #14bf98 100%);
+}
+
 .case-content {
-  padding-top: 1rem;
+  padding-top: 1.25rem;
+  padding-bottom: 0.75rem;
 }
 
 .ex-header .p-heading {
   margin-top: 1rem;
   color: #dfe5ec;
+}
+
+.case-card {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 16px 36px rgba(17, 52, 72, 0.12);
+  background: #fff;
 }
 </style>

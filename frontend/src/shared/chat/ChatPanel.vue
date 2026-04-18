@@ -127,6 +127,7 @@ const showRawMarkdown = ref(false)
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #edf2f7;
+  background: linear-gradient(180deg, #f8fbff 0%, #f1f6fc 100%);
 }
 
 .header-actions {
@@ -204,16 +205,27 @@ const showRawMarkdown = ref(false)
 .species-btn,
 .clear-btn,
 .send-btn {
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
   cursor: pointer;
+  font: 600 0.8125rem/1.375rem 'Montserrat', sans-serif;
+  transition: all 0.2s ease;
 }
 
 .sugg-btn,
 .species-btn,
 .clear-btn {
   padding: 8px 12px;
-  background: #eef4fa;
+  background: #f1f4f7;
+  color: #5f6f7f;
+}
+
+.sugg-btn:hover,
+.species-btn:hover,
+.clear-btn:hover {
+  background: #14bf98;
+  border-color: #14bf98;
+  color: #fff;
 }
 
 .input-group {
@@ -223,16 +235,35 @@ const showRawMarkdown = ref(false)
 
 .qa-input {
   flex: 1;
-  padding: 12px 14px;
-  border: 1px solid #cbd8e6;
-  border-radius: 12px;
+  padding: 0.5rem 1rem;
+  height: 3rem;
+  border: 1px solid #dadada;
+  border-radius: 0.25rem;
+  font: 400 0.875rem/1.375rem 'Open Sans', sans-serif;
+}
+
+.qa-input:focus {
+  border: 1px solid #a1a1a1;
+  outline: none;
 }
 
 .send-btn {
   min-width: 110px;
-  padding: 12px 16px;
-  background: #155eef;
+  padding: 0.5rem 1.5rem;
+  background: #14bf98;
+  border-color: #14bf98;
   color: #fff;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #11a985;
+  border-color: #11a985;
+}
+
+.send-btn:disabled {
+  background: #9ccabf;
+  border-color: #9ccabf;
+  cursor: not-allowed;
 }
 
 .species-panel {
@@ -251,7 +282,8 @@ const showRawMarkdown = ref(false)
 }
 
 .species-btn.active {
-  background: #155eef;
+  background: #14bf98;
+  border-color: #14bf98;
   color: #fff;
 }
 

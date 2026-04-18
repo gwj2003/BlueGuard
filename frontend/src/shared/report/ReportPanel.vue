@@ -227,10 +227,35 @@ const reportBasemapModel = computed({
 
 .form-input {
   width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ccd8e4;
-  border-radius: 10px;
-  background: #fff;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  padding-left: 1rem;
+  border: 1px solid #dadada;
+  border-radius: 0.25rem;
+  background-color: #fff;
+  color: #787976;
+  font: 400 0.875rem/1.375rem 'Open Sans', sans-serif;
+  transition: all 0.2s;
+}
+
+select.form-input {
+  padding-right: 2rem;
+  height: 3rem;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url('/images/down-arrow.png');
+  background-position: 96% 50%;
+  background-repeat: no-repeat;
+}
+
+.form-input:focus {
+  border: 1px solid #a1a1a1;
+  outline: none;
+}
+
+.form-input:hover {
+  border-color: #bfc4ca;
 }
 
 .coords-row,
@@ -269,20 +294,41 @@ const reportBasemapModel = computed({
 
 .small-btn,
 .save-btn {
-  border: 0;
-  border-radius: 10px;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
   cursor: pointer;
+  font: 600 0.8125rem/1.375rem 'Montserrat', sans-serif;
+  transition: all 0.2s ease;
 }
 
 .small-btn {
-  padding: 10px 12px;
-  background: #e7eff8;
+  padding: 0.5rem 0.75rem;
+  background: #f1f4f7;
+  color: #5f6f7f;
+}
+
+.small-btn:hover {
+  background: #14bf98;
+  border-color: #14bf98;
+  color: #fff;
 }
 
 .save-btn {
-  padding: 10px 12px;
-  background: #155eef;
+  padding: 0.5rem 0.75rem;
+  background: #14bf98;
+  border-color: #14bf98;
   color: #fff;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #11a985;
+  border-color: #11a985;
+}
+
+.save-btn:disabled {
+  background: #9ccabf;
+  border-color: #9ccabf;
+  cursor: not-allowed;
 }
 
 .message-box {
@@ -318,7 +364,8 @@ const reportBasemapModel = computed({
   max-height: min(52vh, 520px);
   background: #fff;
   border: 1px solid #d9e3ee;
-  border-radius: 12px;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 22px rgba(17, 52, 72, 0.08);
 }
 
 table {
@@ -404,18 +451,18 @@ tbody tr {
 .toggle-left-view-btn {
   margin-top: 14px;
   width: 100%;
-  border: 1px solid #155eef;
-  background: #eaf0ff;
-  color: #1549b5;
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-weight: 600;
+  border: 1px solid #14bf98;
+  background: #f1f4f7;
+  color: #14bf98;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  font: 600 0.8125rem/1.375rem 'Montserrat', sans-serif;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .toggle-left-view-btn:hover {
-  background: #155eef;
+  background: #14bf98;
   color: #fff;
 }
 
