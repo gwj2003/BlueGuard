@@ -1,6 +1,10 @@
 # 水生入侵生物综合平台
 
-一个面向维护和演示的前后端分离项目。后端使用 FastAPI + SQLite + 可选 Neo4j，前端使用 Vue 3 + Vite + Leaflet。当前仓库不是传统单页 SPA，而是多页面入口加共享模块的结构。
+本项目是前后端分离的多页面应用。
+
+- 后端：FastAPI + SQLite（可选 Neo4j）
+- 前端：Vue 3 + Vite（MPA 入口）
+- 目标：支撑物种查询、问答、上报与地理展示等能力
 
 ## 维护者视角
 
@@ -10,108 +14,73 @@
 2. 后端链路：`backend/` 负责 API、服务层、仓储层、模型和模式定义。
 3. 前端链路：`frontend/` 负责多页面入口、旧模板壳、共享模块和案例页功能组件。
 
-## 根目录职责
-
-- `backend/` 后端服务、数据迁移、图谱与问答逻辑
-- `frontend/` 前端多页面应用与静态资源
-- `scripts/` 本地启动、Neo4j、ngrok 相关脚本
-- `environment.yml` Python/Conda 环境定义
-- `README.md` 维护者总览
-- `SETUP_GUIDE.md` 安装与启动操作手册
-
-## 文件名 → 作用
-
-### 根目录
-
-| 文件名 | 作用 |
-|---|---|
-| `.gitignore` | 忽略构建产物、依赖目录、本地环境和临时文件 |
-| `environment.yml` | 定义后端 Python/Conda 环境，便于重建运行环境 |
-| `README.md` | 项目总览，面向维护者说明架构和职责边界 |
-| `SETUP_GUIDE.md` | 安装、启动、验证和故障排查手册 |
-
-### 后端
-
-| 文件名 | 作用 |
-|---|---|
-| `backend/main.py` | FastAPI 入口，负责创建应用并挂载路由 |
-| `backend/config.py` | 管理数据库、Neo4j、API Key 等配置 |
-| `backend/database.py` | 负责数据库连接、会话和初始化相关逻辑 |
-| `backend/api/router.py` | 汇总并注册所有业务路由 |
-| `backend/api/errors.py` | 统一 API 异常与错误响应 |
-| `backend/api/routes/*.py` | 各业务接口：管理、统计、地理、问答、记录、物种、系统 |
-| `backend/services/*.py` | 业务逻辑层，承接路由与数据访问之间的处理 |
-| `backend/repositories/*.py` | 数据访问层，封装 SQL 或查询逻辑 |
-| `backend/models/*.py` | SQLAlchemy ORM 模型定义 |
-| `backend/schemas/*.py` | 请求/响应模式定义 |
-| `backend/tools/migrate_csv_to_db.py` | 将 CSV 数据导入 SQLite |
-| `backend/tools/import_to_neo4j.py` | 将数据导入 Neo4j 图数据库 |
-| `backend/domain/graph_chain.py` | 图谱问答/推理链路相关逻辑 |
-| `backend/domain/qa_cache.py` | 问答缓存，减少重复计算 |
-| `backend/domain/geo_data.py` | 地理或行政区划数据处理 |
-| `backend/domain/species_data.py` | 物种数据整理、读取或映射 |
-| `backend/runtime/README.md` | 说明运行时目录的用途 |
-
-### 前端
-
-| 文件名 | 作用 |
-|---|---|
-| `frontend/index.html` | 首页 HTML 入口 |
-| `frontend/privacy-policy.html` | 隐私说明页入口 |
-| `frontend/terms-conditions.html` | 服务条款页入口 |
-| `frontend/basin-monitoring.html` | 流域监测项目页入口 |
-| `frontend/knowledge-graph.html` | 知识图谱应用页入口 |
-| `frontend/mobile-monitoring.html` | 移动端监测页入口 |
-| `frontend/vite.config.js` | Vite 构建、入口页、别名和代理配置 |
-| `frontend/jsconfig.json` | 编辑器路径别名和 JS 感知配置 |
-| `frontend/package.json` | 前端依赖、脚本和项目元数据 |
-| `frontend/public/` | 旧版页面使用的静态资源 |
-| `frontend/src/entries/*.js` | 各 HTML 页面的挂载脚本 |
-| `frontend/src/legacy/*.vue` | 首页、法律页和案例页的旧模板壳 |
-| `frontend/src/legacy/templates/*.html` | 旧模板的原始 HTML 资源 |
-| `frontend/src/features/*.vue` | 三个案例页的功能包装组件 |
-| `frontend/src/shared/*` | 可复用的 API、面板、composables 和工具 |
-| `frontend/src/api/*.js` | 向旧导入路径提供兼容转发 |
-| `frontend/src/utils/*.js` | 向旧工具路径提供兼容转发 |
-
-### 脚本
-
-| 文件名 | 作用 |
-|---|---|
-| `scripts/run_backend.bat` | Windows 启动后端 |
-| `scripts/run_backend.sh` | Linux/macOS 启动后端 |
-| `scripts/run_frontend.bat` | Windows 启动前端 |
-| `scripts/run_frontend.sh` | Linux/macOS 启动前端 |
-| `scripts/start-neo4j.bat` | Windows 启动 Neo4j |
-| `scripts/start-neo4j.sh` | Linux/macOS 启动 Neo4j |
-| `scripts/start.bat` | Windows 一键启动总入口 |
-| `scripts/start.sh` | Linux/macOS 一键启动总入口 |
-| `scripts/start-with-ngrok.bat` | Windows 一键启动并暴露 ngrok |
-| `scripts/start-with-ngrok.sh` | Linux/macOS 一键启动并暴露 ngrok |
-
-## 当前结构总览
+## 仓库结构
 
 ```text
-BlueGuard/
-├── backend/
-│   ├── api/           # 路由与错误封装
-│   ├── services/      # 业务逻辑
-│   ├── repositories/  # 数据访问
-│   ├── models/        # ORM 模型
-│   ├── schemas/       # 请求/响应模式
-│   ├── domain/        # 领域实现（地理、图谱、缓存、物种数据）
-│   ├── tools/         # 数据迁移与图数据库导入脚本
-│   └── *.py           # 配置与入口文件
-├── frontend/
-│   ├── *.html         # 多页面 HTML 入口
-│   ├── public/        # 旧站点静态资源
-│   └── src/
-│       ├── entries/   # HTML 对应的挂载脚本
-│       ├── legacy/    # 旧模板壳与模板解析层
-│       ├── features/  # 三个案例页功能包装
-│       └── shared/    # 可复用面板、composables、api、工具
-└── scripts/           # 启动脚本
+./
+├── backend/                # 后端服务、数据迁移、图谱与问答逻辑
+├── frontend/               # 前端多页面应用与静态资源
+├── scripts/                # 本地启动、Neo4j、ngrok 相关脚本
+├── environment.yml         # Python/Conda 环境定义
+├── SETUP_GUIDE.md          # 安装与启动指南
+└── README.md               # 当前文件
 ```
+
+## 后端目录说明
+
+```text
+backend/
+├── main.py                 # FastAPI 入口，负责创建应用并挂载路由
+├── config.py               # 管理数据库、Neo4j、API Key 等配置
+├── database.py             # 负责数据库连接、会话和初始化相关逻辑
+├── api/
+│   ├── router.py           # 汇总并注册所有业务路由
+│   ├── errors.py           # 统一 API 异常与错误响应
+│   └── routes/             # 各业务接口：管理、统计、地理、问答、记录、物种、系统
+├── services/               # 业务逻辑层，承接路由与数据访问之间的处理
+├── repositories/           # 数据访问层，封装 SQL 或查询逻辑
+├── models/                 # SQLAlchemy ORM 模型定义
+├── schemas/                # 请求/响应模式定义
+├── domain/                 # 领域逻辑（问答、地理、物种数据）
+│   ├── graph_chain.py      # 图谱问答/推理链路相关逻辑
+│   ├── qa_cache.py         # 问答缓存，减少重复计算
+│   ├── geo_data.py         # 地理或行政区划数据处理
+│   └── species_data.py     # 物种数据整理、读取或映射
+├── tools/                  # 数据迁移与导入脚本
+│   ├── migrate_csv_to_db.py# 将 CSV 数据导入 SQLite
+│   └── import_to_neo4j.py  # 将数据导入 Neo4j 图数据库
+├── data/                   # 数据文件目录
+├── runtime/                # 运行时产物目录
+├── requirements.txt
+└── .env.example
+```
+
+## 前端目录说明
+
+```text
+frontend/
+├── index.html              # 首页 HTML 入口
+├── basin-monitoring.html   # 流域监测项目页入口
+├── knowledge-graph.html    # 知识图谱应用页入口
+├── mobile-monitoring.html  # 移动端监测页入口
+├── vite.config.js          # Vite 构建、入口页、别名和代理配置
+├── package.json            # 前端依赖、脚本和项目元数据
+├── public/                 # 静态资源（含 legacy 依赖脚本）
+└── src/
+	├── entries/            # 各 HTML 入口的挂载脚本
+	├── legacy/             # 旧模板兼容壳组件
+	├── features/           # 案例页功能组件
+	├── shared/             # 共享模块（api/panel/composables/utils）
+	├── api/                # 兼容层导出
+	└── utils/              # 兼容层导出
+```
+
+当前 `entries` 与页面入口对应关系：
+
+- `index.html` -> `src/entries/index.js`
+- `basin-monitoring.html` -> `src/entries/basin-monitoring.js`
+- `knowledge-graph.html` -> `src/entries/knowledge-graph.js`
+- `mobile-monitoring.html` -> `src/entries/mobile-monitoring.js`
 
 ## 前端分层
 
@@ -128,6 +97,18 @@ BlueGuard/
 - `backend/repositories/`：数据库访问封装。
 - `backend/models/`：SQLAlchemy 基类与 ORM 定义。
 - `backend/schemas/`：Pydantic 请求/响应模式。
+
+
+## scripts 目录说明
+
+- `scripts/run_backend.*`：仅启动后端
+- `scripts/run_frontend.*`：仅启动前端
+- `scripts/start-neo4j.*`：启动 Neo4j
+- `scripts/start.*`：常规一键启动
+- `scripts/start-with-ngrok.*`：一键启动并建立 ngrok 隧道
+
+- Windows 启动后端使用*.bat
+- Linux/macOS 启动后端使用*.sh
 
 ## 维护常用命令
 
@@ -177,12 +158,12 @@ pre-commit install
 pre-commit run --all-files
 ```
 
-## 维护提示
+## 维护注意事项
 
-- `frontend/public/` 下的旧版静态资源仍被老模板页面引用，删除前要先全局确认。
-- `frontend/src/shared/` 是当前复用层，优先在这里放可共享逻辑，不要再把新代码塞回 `spa/`。
-- `dist/` 和 `node_modules/` 属于构建/依赖产物，不应手工维护。
-- 如果后端或前端改动了入口文件，优先重新跑一次生产构建再合并。
+- `frontend/public/js/*.js` 仍被 legacy 页面依赖，删除前请先确认引用。
+- `backend/runtime/species.db` 属于本地运行时数据，不应手工编辑。
+- 前端命令需在 `frontend/` 目录执行，例如 `npm run dev` 与 `npm run build`。
+- 变更入口或构建配置后，至少执行一次前端构建验证：
 
 ## 验证标准
 

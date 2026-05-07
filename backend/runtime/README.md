@@ -1,3 +1,13 @@
-This directory stores runtime artifacts such as the local SQLite database.
+# backend/runtime
 
-It is intentionally ignored by git.
+该目录用于存放后端运行时产物，主要包括本地 SQLite 数据库文件。
+
+当前可见文件：
+
+- `species.db`：应用运行时使用的数据库文件。
+
+## 约定
+
+- 此目录内容属于本地状态，通常会被版本控制忽略。
+- 不建议手工修改数据库文件；如需重建数据，请使用 `backend/tools/` 下的数据迁移脚本。
+- 部署或迁移环境时，应通过脚本与原始数据重建，而不是直接复制历史 runtime 文件。

@@ -24,13 +24,10 @@
           <a class="nav-link page-scroll" href="index.html#intro">平台简介</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link page-scroll" href="index.html#services">核心功能</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link page-scroll" href="index.html#callMe">预约咨询</a>
+          <a class="nav-link page-scroll" href="index.html#services">平台特色</a>
         </li>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle page-scroll" href="index.html#projects" id="projectsDropdown" role="button" aria-haspopup="true" aria-expanded="false">应用案例</a>
+          <a class="nav-link dropdown-toggle page-scroll" href="index.html#projects" id="projectsDropdown" role="button" aria-haspopup="true" aria-expanded="false">核心功能</a>
           <div class="dropdown-menu" aria-labelledby="projectsDropdown">
             <a class="dropdown-item" href="basin-monitoring.html"><span class="item-text">流域监测项目</span></a>
             <div class="dropdown-items-divide-hr"></div>
@@ -39,35 +36,7 @@
             <a class="dropdown-item" href="mobile-monitoring.html"><span class="item-text">移动端监测</span></a>
           </div>
         </li>
-
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle page-scroll" href="index.html#about" id="navbarDropdown" role="button" aria-haspopup="true" aria-expanded="false">关于平台</a>
-          <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-            <a class="dropdown-item" href="terms-conditions.html"><span class="item-text">服务条款</span></a>
-            <div class="dropdown-items-divide-hr"></div>
-            <a class="dropdown-item" href="privacy-policy.html"><span class="item-text">隐私说明</span></a>
-          </div>
-        </li>
-
-        <li class="nav-item">
-          <a class="nav-link page-scroll" href="index.html#contact">联系我们</a>
-        </li>
       </ul>
-
-      <span class="nav-item social-icons">
-        <span class="fa-stack">
-          <a href="#your-link">
-            <span class="hexagon"></span>
-            <i class="fab fa-facebook-f fa-stack-1x"></i>
-          </a>
-        </span>
-        <span class="fa-stack">
-          <a href="#your-link">
-            <span class="hexagon"></span>
-            <i class="fab fa-twitter fa-stack-1x"></i>
-          </a>
-        </span>
-      </span>
     </div>
   </nav>
 </template>

@@ -10,34 +10,23 @@
             </p>
           </div>
         </div>
-        <div class="col-md-2">
+        <div class="col-md-3">
           <div class="text-container">
             <h4>平台链接</h4>
             <ul class="list-unstyled li-space-lg white">
               <li><a class="white" href="index.html">平台首页</a></li>
-              <li><a class="white" href="terms-conditions.html">服务条款</a></li>
-              <li><a class="white" href="privacy-policy.html">隐私说明</a></li>
+              <li><a class="white" href="basin-monitoring.html">流域监测</a></li>
+              <li><a class="white" href="knowledge-graph.html">知识图谱应用</a></li>
+              <li><a class="white" href="mobile-monitoring.html">移动端监测</a></li>
             </ul>
           </div>
         </div>
-        <div class="col-md-2">
-          <div class="text-container">
-            <h4>技术支持</h4>
-            <ul class="list-unstyled li-space-lg">
-              <li><a class="white" href="#your-link">使用文档</a></li>
-              <li><a class="white" href="#your-link">常见问题</a></li>
-              <li class="media"><a class="white" href="#your-link">服务热线</a></li>
-            </ul>
-          </div>
-        </div>
-        <div class="col-md-2">
-          <div class="text-container">
-            <h4>合作单位</h4>
-            <ul class="list-unstyled li-space-lg">
-              <li><a class="white" href="#your-link">监测机构</a></li>
-              <li><a class="white" href="#your-link">科研院所</a></li>
-              <li><a class="white" href="#your-link">管理部门</a></li>
-            </ul>
+        <div class="col-md-3">
+          <div class="text-container contact">
+            <h4>联系我们</h4>
+            <p><i class="fas fa-map-marker-alt"></i>&nbsp;南京市栖霞区文苑路9号</p>
+            <p><i class="fas fa-phone"></i>&nbsp;<a href="tel:+8613913765432">+86 139 1376 5432</a></p>
+            <p><i class="fas fa-envelope"></i>&nbsp;<a href="mailto:b22100628@njupt.edu.cn">b22100628@njupt.edu.cn</a></p>
           </div>
         </div>
       </div>
