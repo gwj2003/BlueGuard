@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
-import LegacyPage from '@/legacy/LegacyPage.vue'
+import HomePage from '@/pages/HomePage.vue'
 
-export function mountHomePage(rawHtml) {
-    createApp(LegacyPage, { rawHtml }).mount('#app')
+export function mountHomePage() {
+    createApp(HomePage).mount('#app')
 }

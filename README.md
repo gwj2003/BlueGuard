@@ -1,9 +1,9 @@
 # 水生入侵生物综合平台
 
-本项目是前后端分离的多页面应用。
+本项目是前后端分离的多页面应用（MPA），前端已迁移为纯 Vue SFC 渲染层。
 
 - 后端：FastAPI + SQLite（可选 Neo4j）
-- 前端：Vue 3 + Vite（MPA 入口）
+- 前端：Vue 3 + Vite（MPA 多入口），页面壳已由 Vue 组件完全承担
 - 目标：支撑物种查询、问答、上报与地理展示等能力
 
 ## 维护者视角
@@ -12,7 +12,7 @@
 
 1. 启动链路：`scripts/` 下的批处理和 shell 脚本负责本地启动、Neo4j 拉起和 ngrok 暴露。
 2. 后端链路：`backend/` 负责 API、服务层、仓储层、模型和模式定义。
-3. 前端链路：`frontend/` 负责多页面入口、旧模板壳、共享模块和案例页功能组件。
+3. 前端链路：`frontend/` 负责纯 Vue 多页面应用、共享组件、功能组件和 MPA 入口。
 
 ## 仓库结构
 
@@ -77,18 +77,18 @@ frontend/
 
 当前 `entries` 与页面入口对应关系：
 
-- `index.html` -> `src/entries/index.js`
-- `basin-monitoring.html` -> `src/entries/basin-monitoring.js`
-- `knowledge-graph.html` -> `src/entries/knowledge-graph.js`
-- `mobile-monitoring.html` -> `src/entries/mobile-monitoring.js`
+- `index.html` -> `src/entries/index.js`（已移除 raw HTML 注入，入口直接挂载 `HomePage.vue`）
+- `basin-monitoring.html` -> `src/entries/basin-monitoring.js`（挂载 `CaseFeaturePage.vue`）
+- `knowledge-graph.html` -> `src/entries/knowledge-graph.js`（挂载 `CaseFeaturePage.vue`）
+- `mobile-monitoring.html` -> `src/entries/mobile-monitoring.js`（挂载 `CaseFeaturePage.vue`）
 
-## 前端分层
+## 前端分层（迁移后）
 
-- `frontend/src/entries/`：每个 HTML 页面对应一个入口脚本。
-- `frontend/src/legacy/`：保留首页、隐私页、条款页这类旧模板壳，以及模板加载逻辑。
-- `frontend/src/features/`：流域监测、知识图谱、移动端监测三个案例页的功能包装。
-- `frontend/src/shared/`：真正可复用的模块，包含请求封装、地图工具、问答/上报/物种面板和 composables。
-- `frontend/src/api/`、`frontend/src/utils/`：兼容旧导入路径的转发层，后续可逐步收敛。
+- `frontend/src/entries/`：每个 HTML 页面对应一个入口脚本，入口脚本挂载对应的 Vue 页面组件。
+- `frontend/src/components/`：全站共享组件（`AppNavbar.vue`、`AppFooter.vue`）
+- `frontend/src/pages/`：页面壳与页面片段（`HomePage.vue` 与 `pages/home/*` section 组件）
+- `frontend/src/features/`：业务功能组件（`CaseSpeciesFeature.vue`、`CaseQaFeature.vue`、`CaseReportFeature.vue`）
+- `frontend/src/shared/`：真正可复用的模块（API、composables、地图工具等）
 
 ## 后端分层
 
@@ -160,21 +160,22 @@ pre-commit run --all-files
 
 ## 维护注意事项
 
-- `frontend/public/js/*.js` 仍被 legacy 页面依赖，删除前请先确认引用。
+- `frontend/public/js/*.js`：许多交互（锚点平滑滚动、轮播、灯箱、表单验证等）当前仍通过这些第三方脚本实现。迁移时已保留以保证功能完整；可选后续工作是用 Vue 原生或更轻量的替代库替换这些脚本。
 - `backend/runtime/species.db` 属于本地运行时数据，不应手工编辑。
 - 前端命令需在 `frontend/` 目录执行，例如 `npm run dev` 与 `npm run build`。
-- 变更入口或构建配置后，至少执行一次前端构建验证：
+- 变更入口或构建配置后，请至少执行一次前端构建验证：
 
 ## 验证标准
 
 维护侧最基本的验证是：
 
 1. 后端能启动并访问 `/docs`。
-2. 前端能在 `5173` 正常打开。
-3. `npm run build` 成功。
-4. 需要公网时，`scripts\start-with-ngrok.bat` 能正常拉起前端隧道。
+2. 前端能在本地开发服务器正常打开（例如 `http://localhost:5173` 或 Vite 自动分配的可用端口）。
+3. `npm run build` 成功且无模块未解析错误。
+4. 需要公网时，`scripts/start-with-ngrok.bat` 能正常拉起前端隧道。
 
 ## 说明
 
 - Neo4j 和部分 API Key 是可选能力，不可用时系统会降级。
+- 项目已经完成首页与案例页的 Vue 化（纯 SFC 渲染），并移除了 legacy 壳组件；如果需要回退或对比，检查 Git 历史。
 - 这是研究和演示用途项目，不建议直接对外暴露生产入口。

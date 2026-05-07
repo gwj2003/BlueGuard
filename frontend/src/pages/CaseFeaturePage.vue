@@ -1,7 +1,7 @@
 <script setup>
-import { computed, nextTick, onMounted } from 'vue'
-import LegacyFooter from '@/legacy/components/LegacyFooter.vue'
-import LegacyNavbar from '@/legacy/components/LegacyNavbar.vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import AppFooter from '@/components/AppFooter.vue'
+import AppNavbar from '@/components/AppNavbar.vue'
 import CaseQaFeature from '@/features/CaseQaFeature.vue'
 import CaseReportFeature from '@/features/CaseReportFeature.vue'
 import CaseSpeciesFeature from '@/features/CaseSpeciesFeature.vue'
@@ -34,6 +34,24 @@ const fallbackScriptSources = [
   '/js/validator.min.js',
   '/js/scripts.js',
 ]
+
+const isLoading = ref(true)
+const isFadingOut = ref(false)
+const PRELOADER_DELAY_MS = 500
+const PRELOADER_FADE_OUT_MS = 500
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function runLegacyLikePreloaderHide() {
+  setTimeout(() => {
+    isFadingOut.value = true
+    setTimeout(() => {
+      isLoading.value = false
+    }, PRELOADER_FADE_OUT_MS)
+  }, PRELOADER_DELAY_MS)
+}
 
 const featureComponentMap = {
   species: CaseSpeciesFeature,
@@ -74,20 +92,21 @@ onMounted(async () => {
   document.body.setAttribute('data-spy', 'scroll')
   document.body.setAttribute('data-target', '.fixed-top')
 
-  await nextTick()
-  await loadLegacyScripts()
-
-  const spinner = document.querySelector('.spinner-wrapper')
-  if (spinner) {
-    setTimeout(() => {
-      spinner.style.display = 'none'
-    }, 700)
+  try {
+    await nextTick()
+    await loadLegacyScripts()
+  } catch (error) {
+    console.error('Failed to initialize case page scripts:', error)
+  } finally {
+    // Match legacy preloader timing: wait 500ms, then fade out in 500ms.
+    runLegacyLikePreloaderHide()
+    await sleep(PRELOADER_DELAY_MS + PRELOADER_FADE_OUT_MS)
   }
 })
 </script>
 
 <template>
-  <div class="spinner-wrapper">
+  <div v-if="isLoading" class="spinner-wrapper" :class="{ 'is-fading-out': isFadingOut }">
     <div class="spinner">
       <div class="bounce1"></div>
       <div class="bounce2"></div>
@@ -95,7 +114,7 @@ onMounted(async () => {
     </div>
   </div>
 
-  <LegacyNavbar />
+  <AppNavbar />
 
   <header id="header" class="ex-header case-header">
     <div class="container">
@@ -146,7 +165,7 @@ onMounted(async () => {
     </div>
   </div>
 
-  <LegacyFooter />
+  <AppFooter />
 </template>
 
 <style>
@@ -175,5 +194,14 @@ body,
   overflow: hidden;
   box-shadow: 0 16px 36px rgba(17, 52, 72, 0.12);
   background: #fff;
+}
+
+.spinner-wrapper {
+  opacity: 1;
+}
+
+.spinner-wrapper.is-fading-out {
+  opacity: 0;
+  transition: opacity 500ms ease;
 }
 </style>
