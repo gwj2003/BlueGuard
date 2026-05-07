@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
-import LegacyCaseFeaturePage from '@/legacy/LegacyCaseFeaturePage.vue'
+import CaseFeaturePage from '@/pages/CaseFeaturePage.vue'
 
 export function mountCaseFeaturePage(props) {
-    createApp(LegacyCaseFeaturePage, props).mount('#app')
+    createApp(CaseFeaturePage, props).mount('#app')
 }
