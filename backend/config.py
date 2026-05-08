@@ -44,7 +44,6 @@ class Settings(BaseSettings):
 
     qa_cache_max_entries: int = 256
     qa_cache_ttl_seconds: int = 3600
-    qa_use_simple_template: bool = True
 
     @property
     def database_path(self) -> Path:

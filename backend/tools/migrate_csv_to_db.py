@@ -11,6 +11,7 @@ CSV 到 SQLite 数据库迁移脚本
     - 备份原始 CSV 文件到 backup/ 目录
 """
 
+import argparse
 import sys
 import csv
 from pathlib import Path
@@ -19,11 +20,20 @@ from pathlib import Path
 backend_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from database import init_db, bulk_insert_species_data, get_db_stats, SessionLocal
+from database import init_db, bulk_insert_species_data, get_db_stats, SessionLocal, engine
 from config import get_settings
+from models import Base
 
 
-def migrate_csv_to_db():
+def reset_database():
+    """清空当前 SQLite 数据库中的所有表，并重新创建结构。"""
+    print("[0/4] 清空现有数据库...")
+    Base.metadata.drop_all(bind=engine)
+    init_db()
+    print("[0/4] 数据库已清空并重新初始化。")
+
+
+def migrate_csv_to_db(clear_before_import: bool = False):
     """
     从 CSV 文件迁移数据到数据库
     """
@@ -31,7 +41,11 @@ def migrate_csv_to_db():
     print("=" * 60)
     print("🔄 CSV 到 SQLite 数据库迁移")
     print("=" * 60)
+    print(f"[配置] 本次是否清库: {'是' if clear_before_import else '否'}")
     print()
+
+    if clear_before_import:
+        reset_database()
 
     print("[1/4] 初始化数据库...")
     init_db()
@@ -57,29 +71,80 @@ def migrate_csv_to_db():
     # 导入数据
     print("[3/4] 导入数据到数据库...")
     total_imported = 0
+    # 候选列名映射：支持不同来源 CSV 的多种列名
+    FIELD_CANDIDATES = {
+        "species_label": ["species_label", "species", "speciesName", "species_label_trimmed"],
+        "scientific_name": ["gbif_scientific_name", "scientific_name", "scientificName"],
+        "latitude": ["lat", "latitude", "decimalLatitude", "Lat"],
+        "longitude": ["lng", "lon", "longitude", "decimalLongitude", "Lon"],
+        "province": ["province", "admin1", "state_province", "province_name"],
+        "region_code": ["region_code", "region", "region_code"],
+        "date": ["date", "eventDate", "occurrenceDate"],
+        "dataset": ["dataset", "data_source", "datasetKey"],
+        "year": ["year", "Year", "eventYear"],
+    }
+
+    CHUNK_SIZE = 5000  # 大文件分批插入以减少内存峰值
+
+    def _get_first(row: dict, candidates: list[str]):
+        for c in candidates:
+            if c in row and row[c] is not None and str(row[c]).strip() != "":
+                return row[c]
+        return None
+
     for csv_file in csv_files:
         species_name = csv_file.stem
         print(f"  导入 {species_name}...", end=" ")
 
-        data_list = []
-        with open(csv_file, "r", encoding="utf-8") as f:
+        imported_count = 0
+        batch: list[dict] = []
+        with open(csv_file, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
-                data_list.append({
-                    "species_label": row.get("species_label") or species_name,
-                    "scientific_name": row.get("gbif_scientific_name"),
-                    "latitude": _safe_float(row.get("lat")),
-                    "longitude": _safe_float(row.get("lng")),
-                    "province": row.get("province"),
-                    "region_code": row.get("region_code"),
-                    "date": row.get("date"),
-                    "dataset": row.get("dataset"),
-                    "year": _safe_int(row.get("year")),
+                # 兼容不同列名，优先取行内的 species_label，否则用文件名
+                sp = _get_first(row, FIELD_CANDIDATES["species_label"]) or species_name
+                sci = _get_first(row, FIELD_CANDIDATES["scientific_name"]) or None
+                lat_raw = _get_first(row, FIELD_CANDIDATES["latitude"])
+                lng_raw = _get_first(row, FIELD_CANDIDATES["longitude"])
+                prov = _get_first(row, FIELD_CANDIDATES["province"]) or None
+                rcode = _get_first(row, FIELD_CANDIDATES["region_code"]) or None
+                date_raw = _get_first(row, FIELD_CANDIDATES["date"]) or None
+                ds = _get_first(row, FIELD_CANDIDATES["dataset"]) or None
+                year_raw = _get_first(row, FIELD_CANDIDATES["year"]) or None
+
+                # 尝试从 date 中解析 year（若 year 字段缺失）
+                year_val = _safe_int(year_raw) if year_raw else None
+                if not year_val and date_raw:
+                    try:
+                        # 支持 YYYY 或 YYYY-MM-DD
+                        year_val = int(str(date_raw).strip()[:4])
+                    except Exception:
+                        year_val = None
+
+                batch.append({
+                    "species_label": sp,
+                    "scientific_name": sci,
+                    "latitude": _safe_float(lat_raw),
+                    "longitude": _safe_float(lng_raw),
+                    "province": prov,
+                    "region_code": rcode,
+                    "date": date_raw,
+                    "dataset": ds,
+                    "year": year_val,
                 })
 
-        count = bulk_insert_species_data(data_list)
-        total_imported += count
-        print(f"✓ ({count} 条)")
+                if len(batch) >= CHUNK_SIZE:
+                    cnt = bulk_insert_species_data(batch)
+                    imported_count += cnt
+                    batch = []
+
+        # 插入剩余批次
+        if batch:
+            cnt = bulk_insert_species_data(batch)
+            imported_count += cnt
+
+        total_imported += imported_count
+        print(f"✓ ({imported_count} 条)")
 
     print()
     print("[4/4] 迁移结果统计...")
@@ -109,6 +174,20 @@ def migrate_csv_to_db():
     return True
 
 
+def prompt_clear_database(default: bool = False) -> bool:
+    """在交互式终端中询问是否清空数据库。"""
+    default_hint = "Y/n" if default else "y/N"
+    while True:
+        answer = input(f"是否在导入前清空数据库？[{default_hint}] ").strip().lower()
+        if not answer:
+            return default
+        if answer in {"y", "yes", "是", "1", "true"}:
+            return True
+        if answer in {"n", "no", "否", "0", "false"}:
+            return False
+        print("请输入 y / n。")
+
+
 def _safe_float(value) -> float:
     """安全地转换为浮点数"""
     try:
@@ -127,7 +206,37 @@ def _safe_int(value) -> int:
 
 if __name__ == "__main__":
     try:
-        success = migrate_csv_to_db()
+        parser = argparse.ArgumentParser(description="CSV 到 SQLite 数据库迁移")
+        parser.add_argument(
+            "--prompt-clear",
+            action="store_true",
+            help="启动后交互询问是否清空数据库（默认行为）",
+        )
+        parser.add_argument(
+            "--clear-db",
+            action="store_true",
+            help="在导入前清空现有数据库表并重新创建",
+        )
+        parser.add_argument(
+            "--keep-db",
+            action="store_true",
+            help="明确指定不清空数据库，直接追加导入",
+        )
+        args = parser.parse_args()
+
+        if args.clear_db and args.keep_db:
+            raise ValueError("--clear-db 和 --keep-db 不能同时使用")
+
+        if args.clear_db:
+            clear_before_import = True
+        elif args.keep_db:
+            clear_before_import = False
+        elif args.prompt_clear or sys.stdin.isatty():
+            clear_before_import = prompt_clear_database(default=False)
+        else:
+            clear_before_import = False
+
+        success = migrate_csv_to_db(clear_before_import=clear_before_import)
         sys.exit(0 if success else 1)
     except Exception as e:
         print(f"[✗] 错误: {e}")

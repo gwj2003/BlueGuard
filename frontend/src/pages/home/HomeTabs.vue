@@ -56,7 +56,7 @@ onMounted(() => {
         <div class="tab-content" id="ariaTabsContent">
           <div class="tab-pane fade show active" id="tab-1" role="tabpanel" aria-labelledby="tab-1">
             <h4>平台核心服务能力</h4>
-            <p>中国水生动物入侵智能化平台提供从数据采集到智能决策的全链条服务，覆盖科研、监测、管理全场景。</p>
+            <p>中国水生入侵生物智能化平台提供从数据采集到智能决策的全链条服务，覆盖科研、监测、管理全场景。</p>
 
             <div class="progress-container">
               <div class="title">地理可视化 100%</div>

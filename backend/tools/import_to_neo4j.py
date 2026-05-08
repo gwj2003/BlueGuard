@@ -1,27 +1,74 @@
 import os
 import pandas as pd
 from pathlib import Path
+import sys
+from getpass import getpass
 from neo4j import GraphDatabase
+from dotenv import load_dotenv
+
+# Ensure backend package root is on sys.path so imports like `from config import ...` work
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BACKEND_DIR))
+
+# Load .env from backend (before importing settings so env vars are available)
+load_dotenv(BACKEND_DIR / ".env")
+
+from config import get_settings
 
 # ================= 1. 配置区域 =================
 # Neo4j 连接信息 (请根据你的实际情况修改)：
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "******"  # 👈 记得确认密码
+SETTINGS = get_settings()
+
+# Neo4j 连接信息：从 .env / 环境变量读取，避免硬编码
+NEO4J_URI = SETTINGS.neo4j_uri
+NEO4J_USER = SETTINGS.neo4j_username
+NEO4J_PASSWORD = SETTINGS.neo4j_password
 
 # CSV 数据目录
-DATA_DIR = str(Path(__file__).resolve().parent.parent / "data" / "triplets")
+# CSV 数据目录
+DATA_DIR = str(BACKEND_DIR / "data" / "triplets")
 
 # ================= 2. 核心逻辑：关系映射 =================
 # 这个字典告诉程序：如果关系是 X，那么目标节点 Entity2 应该是什么标签 (Label)
 # Entity1 永远是 "Species" (因为是星型拓扑)
 REL_TO_LABEL_MAP = {
-    "HAS_ALIAS": "Species",  # 别名也是一种物种名
-    "BELONGS_TO": "Taxonomy",  # 属于 -> 分类单元
-    "NATIVE_TO": "Location",  # 原产于 -> 地点
-    "INVADES": "Location",  # 入侵了 -> 地点
-    "CAUSES": "Impact",  # 造成 -> 危害
-    "SUPPRESSED_BY": "Control"  # 被防治 -> 措施
+    # 基础属性与生态关系 (原有)
+    "HAS_ALIAS": "Species",
+    "BELONGS_TO": "Taxonomy",
+    "NATIVE_TO": "Origin",
+    "LOCATED_IN": "Origin",
+    "REPORTED_IN": "Province",
+    "THRIVES_IN": "Habitat",
+    "INTRODUCED_VIA": "Pathway",
+    "PREYS_ON": "Target",
+    "COMPETES_WITH": "Target",
+    "CAUSES": "Impact",  
+    "SUPPRESSED_BY": "Control",
+    
+    "INVADES": "Province",
+    "HAS_MORPHOLOGY": "Morphology",
+    "HAS_HABIT": "Habit",
+    
+    # 👇 新增：空间关系
+    "ADJACENT_TO": "Region",
+    "CONTAINS": "Region",
+    "INTERSECTS": "Region",
+    "SPREAD_RISK_TO": "Region",
+    
+    # 👇 新增：因果关系
+    "LEADS_TO": "Event",
+    "MITIGATES": "Event", 
+    "AFFECTS": "Target", 
+    
+    # 👇 新增：时间关系
+    "BEFORE": "Event",
+    "AFTER": "Event",
+    "DURING": "TimePeriod",
+    "OVERLAPS": "Event",
+    
+    # 🌟 新增：修复 EVENT 未知类型报错
+    "EVENT": "Event",
+    "HAS_EVENT": "Event",
 }
 
 
@@ -103,10 +150,22 @@ def import_csv_to_graph(driver, filepath):
 # ================= 4. 主程序 =================
 
 def main():
+    global NEO4J_PASSWORD
+
     # 1. 检查数据目录
     if not os.path.exists(DATA_DIR):
         print(f"❌ 目录不存在: {DATA_DIR}。请先运行 extract_triplets.py")
         return
+
+    print(f"[配置] Neo4j URI: {NEO4J_URI}")
+    print(f"[配置] Neo4j 用户: {NEO4J_USER}")
+
+    if not NEO4J_PASSWORD or str(NEO4J_PASSWORD).strip() in {"", "******", "password", "123456"}:
+        password = getpass("请输入 Neo4j 密码: ")
+        if not password:
+            print("❌ 未输入 Neo4j 密码，已取消导入。")
+            return
+        NEO4J_PASSWORD = password
 
     # 2. 连接数据库
     try:

@@ -69,7 +69,7 @@ onMounted(() => {
           </div>
           <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordionOne">
             <div class="accordion-body">
-              融合地理信息、知识图谱、数据管理、智能问答，为水生入侵动物防控提供一站式技术支撑。
+              融合地理信息、知识图谱、数据管理、智能问答，为水生入侵生物防控提供一站式技术支撑。
             </div>
           </div>
         </div>

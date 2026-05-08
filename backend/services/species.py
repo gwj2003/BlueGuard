@@ -63,7 +63,7 @@ def get_species_info(species: str, db: Session) -> dict:
 
 def list_species_locations(species: str, db: Session) -> dict[str, list[dict]]:
     try:
-        return {"locations": list_locations_by_species(db, species, limit=1000)}
+        return {"locations": list_locations_by_species(db, species)}
     except Exception as exc:
         print(f"Get locations error: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

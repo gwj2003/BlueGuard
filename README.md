@@ -139,6 +139,34 @@ scripts\start-with-ngrok.bat
 - 地理数据：`backend/data/geo/china_100000_full.json`
 - 运行时说明：`backend/runtime/README.md`
 
+### 首次部署推荐顺序
+
+如果你第一次在本机部署，建议按下面顺序执行，避免漏配 `.env` 或在 Neo4j 未启动时直接导入：
+
+1. 复制 `backend/.env.example` 为 `backend/.env`，并填写 `OPENAI_API_KEY`、`NEO4J_PASSWORD` 等配置。
+2. 安装后端和前端依赖，确认 Python 3.12、Node.js、npm 可用。
+3. 启动 Neo4j，确认 `bolt://localhost:7687` 可连接。
+4. 导入 Neo4j 图数据：
+
+```bash
+cd backend
+python tools/import_to_neo4j.py
+```
+
+`import_to_neo4j.py` 会读取 `backend/.env`；如果密码未填写，它会在运行时提示输入。
+5. 初始化 SQLite 运行库：
+
+```bash
+cd backend
+python tools/migrate_csv_to_db.py
+```
+
+6. 启动后端与前端，或直接使用一键脚本：
+
+```bash
+scripts\start.bat
+```
+
 从 CSV 重建本地数据时：
 
 ```bash

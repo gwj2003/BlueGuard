@@ -40,6 +40,37 @@
 
 ## 本地启动
 
+### 首次部署完整顺序
+
+如果你是第一次在自己的电脑上部署，建议严格按下面顺序执行：
+
+1. 复制 `backend/.env.example` 为 `backend/.env`，并填写至少下面几项：
+   - `OPENAI_API_KEY`
+   - `NEO4J_URI`
+   - `NEO4J_USERNAME`
+   - `NEO4J_PASSWORD`
+2. 安装后端和前端依赖。
+3. 启动 Neo4j，并确认 `7687` 端口可监听。
+4. 导入 Neo4j 图数据：
+
+```bash
+cd backend
+python tools/import_to_neo4j.py
+```
+
+   - 这个脚本会读取 `backend/.env`。
+   - 如果 `.env` 里没有填写 `NEO4J_PASSWORD`，脚本会在运行时询问你输入。
+5. 初始化 SQLite 运行库：
+
+```bash
+cd backend
+python tools/migrate_csv_to_db.py
+```
+
+   - 这个脚本会在运行时询问是否清空数据库。
+   - 第一次部署通常建议清空后重建。
+6. 最后再启动后端和前端，或者直接使用一键脚本。
+
 ### 推荐方式：一键启动
 
 Windows：
@@ -77,6 +108,13 @@ scripts\run_frontend.bat
 ```bash
 cd backend
 python tools/migrate_csv_to_db.py
+```
+
+如果要先清空数据库再导入，请在脚本提示时选择清库，或者手动执行：
+
+```bash
+cd backend
+python tools/migrate_csv_to_db.py --clear-db
 ```
 
 ## ngrok 公网访问

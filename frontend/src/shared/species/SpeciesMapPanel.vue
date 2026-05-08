@@ -5,24 +5,13 @@
         <h3>分布识别分析</h3>
 
         <label class="field-label">选择底图</label>
-        <select v-model="basemapModel" @change="changeBasemap" class="control-input">
-          <option value="gaode_satellite">高德卫星影像</option>
-          <option value="gaode_satellite_annotated">高德卫星影像（带标注）</option>
-        </select>
+        <PrettySelect v-model="basemapSelectModel" :options="basemapOptions" placeholder="请选择底图" />
 
         <label class="field-label">选择图层</label>
-        <select v-model="layerModel" @change="changeLayer" class="control-input">
-          <option value="points">散点图</option>
-          <option value="heatmap">空间热力图</option>
-          <option value="province">省级填色图</option>
-          <option value="maxent">MaxEnt 适生区预测</option>
-        </select>
+        <PrettySelect v-model="layerSelectModel" :options="layerOptions" placeholder="请选择图层" />
 
         <label class="field-label">选择物种</label>
-        <select v-model="speciesModel" @change="onSpeciesChange" class="control-input">
-          <option value="">-- 请选择物种 --</option>
-          <option v-for="species in speciesList" :key="species" :value="species">{{ species }}</option>
-        </select>
+        <PrettySelect v-model="speciesSelectModel" :options="speciesOptions" placeholder="-- 请选择物种 --" />
 
         <div v-if="selectedSpecies" class="stats-card">
           <div class="stats-title">分布统计</div>
@@ -37,6 +26,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import PrettySelect from '@/shared/components/PrettySelect.vue'
 
 const props = defineProps({
   speciesList: { type: Array, required: true },
@@ -51,20 +41,49 @@ const props = defineProps({
 
 const emit = defineEmits(['update:selectedSpecies', 'update:selectedBasemap', 'update:selectedLayer'])
 
-const speciesModel = computed({
-  get: () => props.selectedSpecies,
-  set: (value) => emit('update:selectedSpecies', value),
-})
+const basemapOptions = [
+  { label: '高德卫星影像', value: 'gaode_satellite' },
+  { label: '高德卫星影像（带标注）', value: 'gaode_satellite_annotated' },
+]
 
-const basemapModel = computed({
+const layerOptions = [
+  { label: '散点图', value: 'points' },
+  { label: '空间热力图', value: 'heatmap' },
+  { label: '省级填色图', value: 'province' },
+]
+
+const speciesOptions = computed(() => [
+  { label: '-- 请选择物种 --', value: '' },
+  ...props.speciesList.map((species) => ({ label: species, value: species })),
+])
+
+const basemapModelWithChange = computed({
   get: () => props.selectedBasemap,
-  set: (value) => emit('update:selectedBasemap', value),
+  set: (value) => {
+    emit('update:selectedBasemap', value)
+    props.changeBasemap?.(value)
+  },
 })
 
-const layerModel = computed({
+const layerModelWithChange = computed({
   get: () => props.selectedLayer,
-  set: (value) => emit('update:selectedLayer', value),
+  set: (value) => {
+    emit('update:selectedLayer', value)
+    props.changeLayer?.(value)
+  },
 })
+
+const speciesModelWithChange = computed({
+  get: () => props.selectedSpecies,
+  set: (value) => {
+    emit('update:selectedSpecies', value)
+    props.onSpeciesChange?.(value)
+  },
+})
+
+const basemapSelectModel = basemapModelWithChange
+const layerSelectModel = layerModelWithChange
+const speciesSelectModel = speciesModelWithChange
 </script>
 
 <style scoped>

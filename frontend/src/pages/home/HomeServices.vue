@@ -4,7 +4,7 @@
       <div class="row">
         <div class="col-lg-12">
           <div class="section-title">平台特色</div>
-          <h2>全方位支撑水生入侵动物<br />智能化监测与管理</h2>
+          <h2>全方位支撑水生入侵生物<br />智能化监测与管理</h2>
         </div>
       </div>
       <div class="row">
@@ -16,7 +16,7 @@
             <div class="card-body">
               <h3 class="card-title">地理空间可视化</h3>
               <p>
-                基于Leaflet地图引擎，实现全国水域入侵动物分布点位实时展示、图层叠加与空间查询
+                基于Leaflet地图引擎，实现全国水域入侵生物分布点位实时展示、图层叠加与空间查询
               </p>
               <ul class="list-unstyled li-space-lg">
                 <li class="media">
@@ -39,7 +39,7 @@
             <div class="card-body">
               <h3 class="card-title">知识图谱智能服务</h3>
               <p>
-                构建水生入侵动物知识图谱，实现物种关系、危害等级、传播路径深度关联与智能问答
+                构建水生入侵生物知识图谱，实现物种关系、危害等级、传播路径深度关联与智能问答
               </p>
               <ul class="list-unstyled li-space-lg">
                 <li class="media">

@@ -41,27 +41,59 @@ _CALL_CYPHER = re.compile(r"(?<![.\w])CALL(?![\w])", re.IGNORECASE)
 
 
 MANUAL_STRUCTURED_SCHEMA = {
-    "node_props": {
-        "Species": [{"property": "name", "type": "STRING"}],
-        "Taxonomy": [{"property": "name", "type": "STRING"}],
-        "Location": [
-            {"property": "name", "type": "STRING"},
-            {"property": "lat", "type": "FLOAT"},
-            {"property": "lng", "type": "FLOAT"},
+        "node_props": {
+            "Species": [{"property": "name", "type": "STRING"}],
+            "Taxonomy": [{"property": "name", "type": "STRING"}],
+            "Origin": [{"property": "name", "type": "STRING"}],
+            "Province": [{"property": "name", "type": "STRING"}],
+            "City": [{"property": "name", "type": "STRING"}],
+            "District": [{"property": "name", "type": "STRING"}],
+            "Region": [{"property": "name", "type": "STRING"}],
+            "Habitat": [{"property": "name", "type": "STRING"}],
+            "Pathway": [{"property": "name", "type": "STRING"}],
+            "Target": [{"property": "name", "type": "STRING"}],
+            "Impact": [{"property": "name", "type": "STRING"}],
+            "Control": [{"property": "name", "type": "STRING"}],
+            "Event": [{"property": "name", "type": "STRING"}],
+            "TimePeriod": [{"property": "name", "type": "STRING"}],
+            "Morphology": [{"property": "name", "type": "STRING"}],
+            "Habit": [{"property": "name", "type": "STRING"}]
+        },
+        "relationships": [
+            {"start": "Species", "type": "HAS_ALIAS", "end": "Species"},
+            {"start": "Species", "type": "BELONGS_TO", "end": "Taxonomy"},
+            {"start": "Species", "type": "NATIVE_TO", "end": "Origin"},
+            {"start": "Species", "type": "HAS_MORPHOLOGY", "end": "Morphology"},
+            {"start": "Species", "type": "HAS_HABIT", "end": "Habit"},
+            {"start": "Species", "type": "REPORTED_IN", "end": "Province"},
+            {"start": "Species", "type": "REPORTED_IN", "end": "City"},
+            {"start": "Species", "type": "REPORTED_IN", "end": "District"},
+            {"start": "Species", "type": "HAS_EVENT", "end": "Event"},
+            {"start": "District", "type": "LOCATED_IN", "end": "City"},
+            {"start": "City", "type": "LOCATED_IN", "end": "Province"},
+            {"start": "Origin", "type": "LOCATED_IN", "end": "Origin"},
+            {"start": "Region", "type": "LOCATED_IN", "end": "Region"},
+            {"start": "Species", "type": "THRIVES_IN", "end": "Habitat"},
+            {"start": "Species", "type": "INTRODUCED_VIA", "end": "Pathway"},
+            {"start": "Species", "type": "PREYS_ON", "end": "Target"},
+            {"start": "Species", "type": "COMPETES_WITH", "end": "Target"},
+            {"start": "Species", "type": "CAUSES", "end": "Impact"},
+            {"start": "Species", "type": "AFFECTS", "end": "Target"},
+            {"start": "Species", "type": "AFFECTS", "end": "Region"},
+            {"start": "Event", "type": "AFFECTS", "end": "Target"},
+            {"start": "Event", "type": "AFFECTS", "end": "Region"},
+            {"start": "Control", "type": "MITIGATES", "end": "Species"}, 
+            {"start": "Control", "type": "MITIGATES", "end": "Impact"},
+            {"start": "Control", "type": "MITIGATES", "end": "Event"},
+            {"start": "Event", "type": "DURING", "end": "TimePeriod"},
+            {"start": "Event", "type": "CAUSES", "end": "Impact"},
+            {"start": "Event", "type": "CAUSES", "end": "Event"},
+            {"start": "Event", "type": "CONTAINS", "end": "Event"},
+            {"start": "Region", "type": "CONTAINS", "end": "Region"},
+            {"start": "Region", "type": "SPREAD_RISK_TO", "end": "Region"}
         ],
-        "Impact": [{"property": "name", "type": "STRING"}],
-        "Control": [{"property": "name", "type": "STRING"}],
-    },
-    "relationships": [
-        {"start": "Species", "type": "HAS_ALIAS", "end": "Species"},
-        {"start": "Species", "type": "BELONGS_TO", "end": "Taxonomy"},
-        {"start": "Species", "type": "NATIVE_TO", "end": "Location"},
-        {"start": "Species", "type": "INVADES", "end": "Location"},
-        {"start": "Species", "type": "CAUSES", "end": "Impact"},
-        {"start": "Species", "type": "SUPPRESSED_BY", "end": "Control"},
-    ],
-    "metadata": {},
-}
+        "metadata": {}
+    }
 
 
 def assert_read_only_cypher(cypher: str) -> None:
@@ -148,15 +180,30 @@ def _build_chain():
     llm = get_llm()
 
     CYPHER_GENERATION_TEMPLATE = """
-    任务：将用户问题转换为 Cypher 查询。
-    Schema：{schema}
-    说明：
-    1. 物种名称在图中可能与平台列表不完全一致，对 Species.name 优先用 toLower(s.name) CONTAINS toLower('关键词') 或 CONTAINS 做模糊匹配，必要时 OR 多个别名。
-    2. 仅使用 Schema 中的关系与标签；禁止 CREATE、MERGE、DELETE、SET、REMOVE、LOAD CSV 等写操作。
-    3. 只输出单条只读查询（MATCH/OPTIONAL MATCH/RETURN/WITH/WHERE 等），不要分号连接多条。
-    4. 只输出 Cypher，不要解释。
-    用户问题：{question}
-    Cypher："""
+        任务：将用户问题转换为 Neo4j Cypher 查询。
+        Schema：{schema}
+        说明与红线规则：
+          1. 仅使用 Schema 中存在的关系和节点类型，禁止臆造关系名或标签。
+          2. 节点名称模糊匹配优先使用 CONTAINS，但只在确实需要模糊检索时使用。
+                    3. 关系类型写法必须符合 Neo4j 语法：多个关系类型只写成 `:CAUSES|AFFECTS`，不要写成 `:CAUSES|:AFFECTS`。
+                         另外，尽量不要把“关系类型并列”与“变长路径 *0..1/*1..2”写在同一个模式里；如果需要多关系或多跳查询，优先拆成多个 MATCH / OPTIONAL MATCH。
+                4. 【重要属性】：
+           - REPORTED_IN 关系可能带有 `year` (年份) 和 `status` 属性。
+           - MITIGATES 关系带有 `method` (如:化学/物理/生物) 和 `type` (主要/辅助) 属性。
+           - CAUSES 关系带有 `type` (直接/间接) 属性。
+              - SPREAD_RISK_TO 关系带有 `confidence` (高/中/低) 属性。
+              - PREYS_ON / COMPETES_WITH 关系带有 `severity` (高/中/低) 属性。
+                    5. 【查询策略】：
+              - 查分布时优先用 Species-[:REPORTED_IN]->(Province/City/District)。
+              - 查入侵史、事件、治理行动时优先用 Species-[:HAS_EVENT]->(Event)，再从 Event 继续查 DURING / AFTER / CAUSES / MITIGATES。
+              - 查省市区层级时，可以补充使用 District-[:LOCATED_IN]->City、City-[:LOCATED_IN]->Province。
+              - 查区域扩散时优先用 Region-[:SPREAD_RISK_TO]->Region 或 Region-[:CONTAINS]->Region。
+              - 查防治手段时优先用 Control-[:MITIGATES]->(Species/Event/Impact)。
+              - 查引入途径、生境、别名、分类、危害时分别使用 INTRODUCED_VIA、THRIVES_IN、HAS_ALIAS、BELONGS_TO、CAUSES/AFFECTS/PREYS_ON/COMPETES_WITH。
+                    6. 如果问题涉及事件、时间或空间泛指词，优先按 Event / Region / TimePeriod 处理，不要强行映射到 Province。
+                    7. 只输出纯粹的 Cypher 代码，不要任何 Markdown 格式或多余解释。
+        用户问题：{question}
+        Cypher："""
 
     CYPHER_PROMPT = PromptTemplate(
         input_variables=["schema", "question"], template=CYPHER_GENERATION_TEMPLATE
@@ -211,64 +258,7 @@ def get_chain(force_refresh: bool = False):
         _build_chain()
     return _chain
 
-
-SIMPLE_TEMPLATE_CYPHER = """
-MATCH (s:Species)
-WHERE toLower(s.name) CONTAINS toLower($needle)
-OPTIONAL MATCH (s)-[r]->(n)
-RETURN s.name AS species, type(r) AS rel_type, labels(n) AS nlabels, coalesce(n.name, '') AS related
-LIMIT 40
-"""
-
-
-def _extract_species_needle(question: str, gbif_names: list) -> Optional[str]:
-    q = (question or "").strip()
-    if len(q) > 200:
-        return None
-    if not re.search(r"(介绍|危害|防治|分类|原产地|是什么|哪种|如何|怎样|请问|查询|说说|讲讲)", q):
-        return None
-    names_sorted = sorted((n for n in gbif_names if n), key=len, reverse=True)
-    for n in names_sorted:
-        if n in q:
-            return n
-    return None
-
-
-def try_simple_template_qa(question: str, gbif_names: list) -> Optional[dict]:
-    """命中简单模板时：1 次参数化 Cypher + 1 次 LLM 总结，跳过 Cypher 生成 LLM。"""
-    if not get_settings().qa_use_simple_template:
-        return None
-    needle = _extract_species_needle(question, gbif_names)
-    if not needle:
-        return None
-    g = get_neo4j_graph()
-    if g is None:
-        return None
-    try:
-        rows = g.query(SIMPLE_TEMPLATE_CYPHER.strip(), params={"needle": needle})
-    except Exception as e:
-        print(f"simple template Cypher 失败: {e}")
-        return None
-    if not rows:
-        return None
-    llm = get_llm()
-    ctx = str(rows)[:8000]
-    prompt = (
-        "你是水生入侵生物专家。根据下列图谱查询结果回答用户问题；若信息不足请说明。\n"
-        f"图谱数据：\n{ctx}\n\n用户问题：{question}\n回答："
-    )
-    result = llm.invoke(prompt)
-    text = result.content if hasattr(result, "content") else str(result)
-    return {
-        "result": text,
-        "generated_cypher": SIMPLE_TEMPLATE_CYPHER.strip(),
-        "from_template": True,
-    }
-
-
 def invoke_qa(question: str, gbif_names: list) -> dict:
-    t = try_simple_template_qa(question, gbif_names)
-    if t:
-        return t
+    # 简化模板分支已移除：始终使用完整的 chain 流程以保证一致性和可扩展性
     chain = get_chain()
     return chain.invoke({"query": question})

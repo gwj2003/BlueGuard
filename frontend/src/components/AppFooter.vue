@@ -4,9 +4,9 @@
       <div class="row">
         <div class="col-md-6">
           <div class="text-container about">
-            <h4>中国水生动物入侵智能化平台</h4>
+            <h4>中国水生入侵生物智能化平台</h4>
             <p class="white">
-              面向全国水域生态安全，提供水生入侵动物智能化监测、数据分析、知识服务与决策支撑，守护生物多样性与生态平衡。
+              面向全国水域生态安全，提供水生入侵生物智能化监测、数据分析、知识服务与决策支撑，守护生物多样性与生态平衡。
             </p>
           </div>
         </div>
@@ -26,7 +26,7 @@
             <h4>联系我们</h4>
             <p><i class="fas fa-map-marker-alt"></i>&nbsp;南京市栖霞区文苑路9号</p>
             <p><i class="fas fa-phone"></i>&nbsp;<a href="tel:+8613913765432">+86 139 1376 5432</a></p>
-            <p><i class="fas fa-envelope"></i>&nbsp;<a href="mailto:b22100628@njupt.edu.cn">b22100628@njupt.edu.cn</a></p>
+            <p><i class="fas fa-envelope"></i>&nbsp;<a href="mailto:office@aria.com">b22100628@njupt.edu.cn</a></p>
           </div>
         </div>
       </div>
@@ -37,7 +37,7 @@
     <div class="container">
       <div class="row">
         <div class="col-lg-12">
-          <p class="p-small">版权所有 &copy; 2025 中国水生动物入侵智能化监测与分析平台 保留所有权利。</p>
+          <p class="p-small">版权所有 &copy; 2025 中国水生入侵生物智能化监测与分析平台 保留所有权利。</p>
         </div>
       </div>
     </div>

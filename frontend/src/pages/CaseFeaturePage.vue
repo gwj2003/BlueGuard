@@ -88,7 +88,7 @@ async function loadLegacyScripts() {
 }
 
 onMounted(async () => {
-  document.title = `${props.pageTitle} - 中国水生动物入侵智能化平台`
+  document.title = `${props.pageTitle} - 中国水生入侵生物智能化平台`
   document.body.setAttribute('data-spy', 'scroll')
   document.body.setAttribute('data-target', '.fixed-top')
 

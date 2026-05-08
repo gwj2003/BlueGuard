@@ -10,10 +10,7 @@
 
       <div v-if="reportLeftView === 'form'" class="form-area">
         <label class="field-label">物种名称</label>
-        <select v-model="reportForm.species" class="form-input">
-          <option value="">-- 选择物种 --</option>
-          <option v-for="species in speciesList" :key="species" :value="species">{{ species }}</option>
-        </select>
+        <PrettySelect v-model="reportForm.species" :options="speciesOptions" placeholder="-- 选择物种 --" />
 
         <div class="button-row">
           <button @click="forwardGeocode" class="small-btn">详细地名转经纬</button>
@@ -35,7 +32,7 @@
         </div>
 
         <label class="field-label">发现日期</label>
-        <input v-model="reportForm.date" type="date" class="form-input" />
+        <PrettyDateInput v-model="reportForm.date" />
 
         <div class="button-row">
           <button @click="saveLocation" class="save-btn" :disabled="!canSave">保存记录</button>
@@ -50,20 +47,10 @@
 
       <div v-else class="records-area">
         <div class="toolbar">
-          <select v-model="recordFilterSpeciesModel" class="form-input toolbar-species">
-            <option value="">全部物种</option>
-            <option v-for="species in speciesList" :key="species" :value="species">{{ species }}</option>
-          </select>
-          <input v-model="recordFilterDateModel" type="date" class="form-input date-input toolbar-date" />
-          <select v-model="recordSortFieldModel" class="form-input toolbar-sort-field">
-            <option value="date">按日期</option>
-            <option value="species">按物种</option>
-            <option value="location_name">按地点</option>
-          </select>
-          <select v-model="recordSortOrderModel" class="form-input toolbar-sort-order">
-            <option value="desc">降序</option>
-            <option value="asc">升序</option>
-          </select>
+          <PrettySelect v-model="recordFilterSpeciesModel" :options="speciesFilterOptions" placeholder="全部物种" />
+          <PrettyDateInput v-model="recordFilterDateModel" compact class="toolbar-date" />
+          <PrettySelect v-model="recordSortFieldModel" :options="sortFieldOptions" placeholder="按日期" />
+          <PrettySelect v-model="recordSortOrderModel" :options="sortOrderOptions" placeholder="降序" />
           <button class="small-btn toolbar-reset" @click="resetRecordFilters">重置</button>
         </div>
 
@@ -106,10 +93,7 @@
     <section class="report-map-card">
       <div class="map-toolbar">
         <label>地图底图</label>
-        <select v-model="reportBasemapModel" @change="changeReportBasemap" class="form-input map-select">
-          <option value="gaode_satellite">高德卫星</option>
-          <option value="gaode_satellite_annotated">高德卫星（带标注）</option>
-        </select>
+        <PrettySelect v-model="reportBasemapSelectModel" :options="basemapOptions" placeholder="请选择底图" />
       </div>
       <div id="report-map" class="report-map-container"></div>
     </section>
@@ -118,6 +102,8 @@
 
 <script setup>
 import { computed } from 'vue'
+import PrettySelect from '@/shared/components/PrettySelect.vue'
+import PrettyDateInput from '@/shared/components/PrettyDateInput.vue'
 
 const props = defineProps({
   speciesList: { type: Array, required: true },
@@ -151,6 +137,29 @@ const emit = defineEmits([
   'update:reportBasemap',
 ])
 
+const basemapOptions = [
+  { label: '高德卫星', value: 'gaode_satellite' },
+  { label: '高德卫星（带标注）', value: 'gaode_satellite_annotated' },
+]
+
+const speciesOptions = computed(() => props.speciesList.map((species) => ({ label: species, value: species })))
+
+const speciesFilterOptions = computed(() => [
+  { label: '全部物种', value: '' },
+  ...props.speciesList.map((species) => ({ label: species, value: species })),
+])
+
+const sortFieldOptions = [
+  { label: '按日期', value: 'date' },
+  { label: '按物种', value: 'species' },
+  { label: '按地点', value: 'location_name' },
+]
+
+const sortOrderOptions = [
+  { label: '降序', value: 'desc' },
+  { label: '升序', value: 'asc' },
+]
+
 const recordFilterSpeciesModel = computed({
   get: () => props.recordFilterSpecies,
   set: (value) => emit('update:recordFilterSpecies', value),
@@ -174,6 +183,14 @@ const recordSortOrderModel = computed({
 const reportBasemapModel = computed({
   get: () => props.reportBasemap,
   set: (value) => emit('update:reportBasemap', value),
+})
+
+const reportBasemapSelectModel = computed({
+  get: () => props.reportBasemap,
+  set: (value) => {
+    emit('update:reportBasemap', value)
+    props.changeReportBasemap?.(value)
+  },
 })
 </script>
 
@@ -429,19 +446,12 @@ tbody tr {
   border-bottom: 1px solid #edf2f7;
 }
 
-.date-input {
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-}
-
 .map-select {
   width: 220px;
 }
 
-.date-input {
-  letter-spacing: 0;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+.toolbar-date {
+  width: 220px;
 }
 
 .report-map-container {

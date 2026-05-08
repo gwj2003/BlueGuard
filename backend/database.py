@@ -126,7 +126,7 @@ def get_species_list(db: Session) -> list[str]:
     return repo_list_species_names(db)
 
 
-def get_locations_by_species(db: Session, species: str, limit: int = 1000) -> list[dict]:
+def get_locations_by_species(db: Session, species: str, limit: int | None = None) -> list[dict]:
     return repo_list_locations_by_species(db, species, limit=limit)
 
 

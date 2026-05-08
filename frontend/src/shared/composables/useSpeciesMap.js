@@ -17,7 +17,6 @@ export const useSpeciesMap = (activeTab) => {
     let tileLayer = null
     let heatLayer = null
     let provinceLayer = null
-    let maxentLayer = null
 
     const initMap = () => {
         if (map) return
@@ -39,7 +38,6 @@ export const useSpeciesMap = (activeTab) => {
         if (markersLayer && map?.hasLayer(markersLayer)) map.removeLayer(markersLayer)
         if (heatLayer && map?.hasLayer(heatLayer)) map.removeLayer(heatLayer)
         if (provinceLayer && map?.hasLayer(provinceLayer)) map.removeLayer(provinceLayer)
-        if (maxentLayer && map?.hasLayer(maxentLayer)) map.removeLayer(maxentLayer)
     }
 
     const CHINA_BOUNDS = L.latLngBounds([
@@ -143,17 +141,6 @@ export const useSpeciesMap = (activeTab) => {
         }
     }
 
-    const loadMaxentData = async () => {
-        if (!selectedSpecies.value) return
-        try {
-            const data = await getJson(`/maxent-image/${encodeURIComponent(selectedSpecies.value)}`)
-            if (!data.imageUrl || !data.bounds) return
-            maxentLayer = L.imageOverlay(data.imageUrl, data.bounds, { opacity: 0.6 }).addTo(map)
-        } catch (error) {
-            console.error('加载MaxEnt数据失败:', error)
-        }
-    }
-
     const changeLayer = async () => {
         if (!map) return
         clearDataLayers()
@@ -168,9 +155,6 @@ export const useSpeciesMap = (activeTab) => {
         } else if (selectedLayer.value === 'province') {
             await loadProvinceData()
             fitToChinaBounds()
-        } else if (selectedLayer.value === 'maxent') {
-            await loadMaxentData()
-            fitToCurrentSpeciesBounds()
         }
     }
 

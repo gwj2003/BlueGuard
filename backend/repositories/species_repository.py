@@ -12,13 +12,16 @@ def list_species_names(db: Session) -> list[str]:
     return sorted([row[0] for row in results])
 
 
-def list_locations_by_species(db: Session, species: str, limit: int = 1000) -> list[dict]:
-    results = (
-        db.query(SpeciesDistribution)
-        .filter(SpeciesDistribution.species_label == species)
-        .limit(limit)
-        .all()
-    )
+def list_locations_by_species(db: Session, species: str, limit: int | None = None) -> list[dict]:
+    """返回指定物种的所有位置信息。
+
+    参数 `limit` 可选；如果为 `None` 则不进行限制（返回全部记录）。
+    """
+    query = db.query(SpeciesDistribution).filter(SpeciesDistribution.species_label == species)
+    if limit is not None:
+        query = query.limit(limit)
+    results = query.all()
+
     return [
         {
             "latitude": row.latitude,

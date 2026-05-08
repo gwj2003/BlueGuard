@@ -64,33 +64,7 @@ def get_province_data(species: str, db: Session) -> dict:
     return {"geojson": {"type": "FeatureCollection", "features": features}}
 
 
-def get_maxent_image(species: str) -> dict:
-    tif_path = _resolve_path_under_data_subdir("maxent_results", species, ".tif")
-    if tif_path is None:
-        return {"error": "无效的物种标识", "imageUrl": "", "bounds": []}
-    png_path = tif_path.with_suffix(".png")
-    if not tif_path.is_file():
-        return {"error": "未找到 MaxEnt 结果文件", "imageUrl": "", "bounds": []}
 
-    try:
-        with rasterio.open(tif_path) as src:
-            bounds = [[src.bounds.bottom, src.bounds.left], [src.bounds.top, src.bounds.right]]
-            arr = src.read(1, masked=True).astype(np.float32)
-            arr = np.ma.filled(arr, np.nan)
-            vmin = np.nanmin(arr)
-            vmax = np.nanmax(arr)
-            norm = np.zeros_like(arr) if not (np.isfinite(vmin) and np.isfinite(vmax)) or vmin == vmax else (arr - vmin) / (vmax - vmin)
-            rgba = plt.get_cmap("YlOrRd")(norm)
-            rgba[..., 3] = np.where(np.isnan(arr), 0, 0.65)
-            png_path.parent.mkdir(parents=True, exist_ok=True)
-            plt.imsave(png_path, rgba)
-        return {
-            "imageUrl": f"/static/maxent_results/{tif_path.stem}.png",
-            "bounds": bounds,
-        }
-    except Exception as exc:
-        print(f"生成 MaxEnt 图像失败: {exc}")
-        return {"error": str(exc), "imageUrl": "", "bounds": []}
 
 
 def _resolve_path_under_data_subdir(subdir: str, species: str, ext: str) -> Path | None:
