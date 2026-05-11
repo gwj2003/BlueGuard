@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from models import SpeciesDistribution
@@ -12,12 +14,43 @@ def list_species_names(db: Session) -> list[str]:
     return sorted([row[0] for row in results])
 
 
-def list_locations_by_species(db: Session, species: str, limit: int | None = None) -> list[dict]:
-    """返回指定物种的所有位置信息。
+def list_locations_by_species(
+    db: Session,
+    species: str,
+    limit: int | None = None,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
+    include_unknown: bool = True,
+) -> list[dict]:
+    """返回指定物种的位置信息，支持按年份范围过滤并可选择是否包含未知年份记录。
 
-    参数 `limit` 可选；如果为 `None` 则不进行限制（返回全部记录）。
+    参数:
+      - `limit`: 可选，限制返回条数。
+      - `year_from`, `year_to`: 可选，按 `year` 字段做闭区间过滤。
+      - `include_unknown`: 若为 True，则在有 year_from/year_to 过滤时仍包含 year 为 NULL 的记录；若为 False 则排除 year 为 NULL。
     """
     query = db.query(SpeciesDistribution).filter(SpeciesDistribution.species_label == species)
+
+    # apply year filters
+    has_year_filter = year_from is not None or year_to is not None
+    if not has_year_filter:
+        # no range provided
+        if include_unknown is False:
+            query = query.filter(SpeciesDistribution.year != None)
+    else:
+        clauses = []
+        if year_from is not None:
+            clauses.append(SpeciesDistribution.year >= int(year_from))
+        if year_to is not None:
+            clauses.append(SpeciesDistribution.year <= int(year_to))
+        range_filter = and_(*clauses) if clauses else None
+        if include_unknown:
+            if range_filter is not None:
+                query = query.filter(or_(range_filter, SpeciesDistribution.year == None))
+        else:
+            if range_filter is not None:
+                query = query.filter(range_filter)
+
     if limit is not None:
         query = query.limit(limit)
     results = query.all()
@@ -27,6 +60,7 @@ def list_locations_by_species(db: Session, species: str, limit: int | None = Non
             "latitude": row.latitude,
             "longitude": row.longitude,
             "location_name": row.province or f"{row.latitude:.4f}, {row.longitude:.4f}",
+            "year": row.year,
         }
         for row in results
     ]

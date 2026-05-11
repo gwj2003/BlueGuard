@@ -61,9 +61,15 @@ def get_species_info(species: str, db: Session) -> dict:
         raise HTTPException(status_code=503, detail="暂时无法获取知识图谱结果。") from exc
 
 
-def list_species_locations(species: str, db: Session) -> dict[str, list[dict]]:
+def list_species_locations(
+    species: str,
+    db: Session,
+    year_from: int | None = None,
+    year_to: int | None = None,
+    include_unknown: bool = True,
+) -> dict[str, list[dict]]:
     try:
-        return {"locations": list_locations_by_species(db, species)}
+        return {"locations": list_locations_by_species(db, species, None, year_from, year_to, include_unknown)}
     except Exception as exc:
         print(f"Get locations error: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

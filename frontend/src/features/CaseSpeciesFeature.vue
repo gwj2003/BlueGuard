@@ -5,10 +5,20 @@
       v-model:selected-species="selectedSpecies"
       v-model:selected-basemap="selectedBasemap"
       v-model:selected-layer="selectedLayer"
+      v-model:heatmap-radius="heatmapRadius"
+      v-model:heatmap-min-opacity="heatmapMinOpacity"
+      v-model:selected-admin-level="selectedAdminLevel"
+      v-model:buffer-radius-meters="bufferRadiusMeters"
+      :is-admin-layer-loading="isAdminLayerLoading"
       :current-locations="currentLocations"
       :change-basemap="changeBasemap"
       :change-layer="changeLayer"
       :on-species-change="onSpeciesChange"
+      v-model:year-from="yearFrom"
+      v-model:year-to="yearTo"
+      v-model:include-unknown="includeUnknown"
+      :year-min="yearMin"
+      :year-max="yearMax"
     />
   </div>
 </template>
@@ -28,10 +38,20 @@ const {
   selectedSpecies,
   selectedBasemap,
   selectedLayer,
+  heatmapRadius,
+  heatmapMinOpacity,
+  selectedAdminLevel,
+  bufferRadiusMeters,
+  isAdminLayerLoading,
   currentLocations,
   changeBasemap,
   changeLayer,
   onSpeciesChange,
+  yearFrom,
+  yearTo,
+  includeUnknown,
+  yearMin,
+  yearMax,
 } = useSpeciesMap(activeTab)
 
 const loadSpeciesList = async () => {

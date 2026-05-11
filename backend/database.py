@@ -33,6 +33,17 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 _write_lock = threading.RLock()
+_data_version = 0
+
+
+def bump_data_version() -> int:
+    global _data_version
+    _data_version += 1
+    return _data_version
+
+
+def get_data_version() -> int:
+    return _data_version
 
 
 def init_db() -> None:
@@ -126,8 +137,15 @@ def get_species_list(db: Session) -> list[str]:
     return repo_list_species_names(db)
 
 
-def get_locations_by_species(db: Session, species: str, limit: int | None = None) -> list[dict]:
-    return repo_list_locations_by_species(db, species, limit=limit)
+def get_locations_by_species(
+    db: Session,
+    species: str,
+    limit: int | None = None,
+    year_from: int | None = None,
+    year_to: int | None = None,
+    include_unknown: bool = True,
+) -> list[dict]:
+    return repo_list_locations_by_species(db, species, limit=limit, year_from=year_from, year_to=year_to, include_unknown=include_unknown)
 
 
 def add_location_record(
@@ -139,7 +157,7 @@ def add_location_record(
     date: str | None = None,
 ):
     with get_write_lock():
-        return repo_create_location_record(
+        result = repo_create_location_record(
             db,
             species=species,
             latitude=latitude,
@@ -147,6 +165,8 @@ def add_location_record(
             location_name=location_name,
             date=date,
         )
+        bump_data_version()
+        return result
 
 
 def get_all_records(db: Session) -> list[dict]:
@@ -157,7 +177,10 @@ def bulk_insert_species_data(rows: list[dict]) -> int:
     with get_write_lock():
         db = SessionLocal()
         try:
-            return repo_bulk_insert_species_data(db, rows)
+            imported = repo_bulk_insert_species_data(db, rows)
+            if imported > 0:
+                bump_data_version()
+            return imported
         finally:
             db.close()
 
