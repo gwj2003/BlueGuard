@@ -25,7 +25,7 @@ function sectionClass() {
 
 <template>
   <nav class="navbar navbar-expand-md navbar-dark navbar-custom fixed-top">
-    <a class="navbar-brand logo-image" href="index.html"><img src="/images/logo.svg" alt="alternative" /></a>
+    <a class="navbar-brand logo-image" href="index.html"><img src="/images/new.svg" alt="alternative" style="height: 44px; width: auto" /></a>
 
     <button
       class="navbar-toggler"
