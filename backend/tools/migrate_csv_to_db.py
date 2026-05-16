@@ -78,6 +78,8 @@ def migrate_csv_to_db(clear_before_import: bool = False):
         "latitude": ["lat", "latitude", "decimalLatitude", "Lat"],
         "longitude": ["lng", "lon", "longitude", "decimalLongitude", "Lon"],
         "province": ["province", "admin1", "state_province", "province_name"],
+        "city": ["city", "admin2", "city_name"],
+        "district": ["district", "admin3", "district_name"],
         "region_code": ["region_code", "region", "region_code"],
         "date": ["date", "eventDate", "occurrenceDate"],
         "dataset": ["dataset", "data_source", "datasetKey"],
@@ -107,6 +109,8 @@ def migrate_csv_to_db(clear_before_import: bool = False):
                 lat_raw = _get_first(row, FIELD_CANDIDATES["latitude"])
                 lng_raw = _get_first(row, FIELD_CANDIDATES["longitude"])
                 prov = _get_first(row, FIELD_CANDIDATES["province"]) or None
+                city = _get_first(row, FIELD_CANDIDATES["city"]) or None
+                district = _get_first(row, FIELD_CANDIDATES["district"]) or None
                 rcode = _get_first(row, FIELD_CANDIDATES["region_code"]) or None
                 date_raw = _get_first(row, FIELD_CANDIDATES["date"]) or None
                 ds = _get_first(row, FIELD_CANDIDATES["dataset"]) or None
@@ -127,6 +131,8 @@ def migrate_csv_to_db(clear_before_import: bool = False):
                     "latitude": _safe_float(lat_raw),
                     "longitude": _safe_float(lng_raw),
                     "province": prov,
+                    "city": city,
+                    "district": district,
                     "region_code": rcode,
                     "date": date_raw,
                     "dataset": ds,

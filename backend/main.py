@@ -8,7 +8,8 @@ from api.errors import register_exception_handlers
 from api.router import api_router
 from config import get_settings
 from database import ensure_seed_data
-from domain.geo_data import load_china_geojson
+from domain.geo_data import preload_china_geo_cache
+from services.analytics import preload_admin_geojson_cache
 
 
 def _wildcard_origin_to_regex(origin: str) -> str:
@@ -52,7 +53,8 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def _startup() -> None:
         settings.runtime_dir.mkdir(parents=True, exist_ok=True)
-        load_china_geojson(force_reload=False)
+        preload_china_geo_cache()
+        preload_admin_geojson_cache()
         ensure_seed_data()
 
     @app.get("/")

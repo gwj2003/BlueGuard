@@ -15,6 +15,8 @@ class SpeciesDistribution(Base):
     latitude: Mapped[float] = mapped_column(Float)
     longitude: Mapped[float] = mapped_column(Float)
     province: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    district: Mapped[str | None] = mapped_column(String(50), nullable=True)
     region_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
     date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     dataset: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -29,6 +31,8 @@ class SpeciesDistribution(Base):
             "latitude": self.latitude,
             "longitude": self.longitude,
             "province": self.province,
+            "city": self.city,
+            "district": self.district,
             "region_code": self.region_code,
             "date": self.date.isoformat() if self.date else None,
             "dataset": self.dataset,

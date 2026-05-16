@@ -15,10 +15,19 @@ from sqlalchemy.orm import Session
 from config import get_settings
 from domain.geo_data import get_china_gdf, get_china_geojson
 from database import get_data_version
-from repositories.species_repository import list_locations_by_species
+from repositories.species_repository import count_locations_by_admin_field, list_locations_by_species
 
 
 _ADMIN_AREA_CACHE: dict[tuple[str, str, int], dict] = {}
+
+
+def preload_admin_geojson_cache(levels: tuple[str, ...] = ("province", "city", "district")) -> dict[str, bool]:
+    """Warm admin-area GeoJSON caches so the first map render avoids file parsing."""
+    result: dict[str, bool] = {}
+    for level in levels:
+        normalized_level = _normalize_admin_level(level)
+        result[normalized_level] = _load_admin_geojson(normalized_level) is not None
+    return result
 
 
 def get_heatmap(
@@ -95,23 +104,28 @@ def _build_admin_area_data(
             detail=f"未找到 {normalized_level} 级行政区 GeoJSON，请先添加 AreaCity_ok_geo 数据。",
         )
 
-    locations = list_locations_by_species(db, species, None, year_from, year_to, include_unknown)
-    dist: dict[str, int] = {}
     gdf_map = gpd.GeoDataFrame.from_features(admin_geojson.get("features", []))
     if not gdf_map.empty:
         gdf_map.set_crs(epsg=4326, inplace=True)
 
-    if not gdf_map.empty and locations:
-        df = pd.DataFrame(locations)
-        if not df.empty and "longitude" in df.columns and "latitude" in df.columns:
-            geometry = [Point(xy) for xy in zip(df["longitude"], df["latitude"])]
-            points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
-            joined = gpd.sjoin(points_gdf, gdf_map, how="inner", predicate="within")
-            key_col = _pick_admin_key_column(joined.columns)
-            if key_col is not None:
-                dist = {str(key): int(count) for key, count in joined[key_col].value_counts().items()}
+    dist = count_locations_by_admin_field(db, species, normalized_level, year_from, year_to, include_unknown)
+    locations = None
+    province_counts = count_locations_by_admin_field(db, species, "province", year_from, year_to, include_unknown)
+    special_region_features = _build_special_region_fallback_features(province_geojson=admin_geojson if normalized_level == "province" else _load_admin_geojson("province"), province_counts=province_counts, normalized_level=normalized_level)
 
-    taiwan_fallback = _build_taiwan_fallback_feature(species, locations, normalized_level)
+    if not dist:
+        locations = list_locations_by_species(db, species, None, year_from, year_to, include_unknown)
+        if not gdf_map.empty and locations:
+            locations = [loc for loc in locations if not _is_special_region_province(loc.get("province"))]
+        if not gdf_map.empty and locations:
+            df = pd.DataFrame(locations)
+            if not df.empty and "longitude" in df.columns and "latitude" in df.columns:
+                geometry = [Point(xy) for xy in zip(df["longitude"], df["latitude"])]
+                points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
+                joined = gpd.sjoin(points_gdf, gdf_map, how="inner", predicate="within")
+                key_col = _pick_admin_key_column(joined.columns)
+                if key_col is not None:
+                    dist = {str(key): int(count) for key, count in joined[key_col].value_counts().items()}
 
     features = []
     for feature in admin_geojson.get("features", []):
@@ -121,20 +135,21 @@ def _build_admin_area_data(
             continue
         geometry = _simplify_feature_geometry(feature.get("geometry"), normalized_level)
         admin_key = _get_admin_key(props)
+        display_name = props.get("name") or props.get("NAME") or props.get("fullname") or admin_key
         features.append(
             {
                 "type": "Feature",
                 "geometry": geometry,
                 "properties": {
                     **props,
-                    "count": dist.get(admin_key, 0),
-                    "name": props.get("name") or props.get("NAME") or props.get("fullname") or admin_key,
+                    "count": dist.get(admin_key, dist.get(str(display_name), 0)),
+                    "name": display_name,
                 },
             }
         )
 
-    if taiwan_fallback is not None:
-        features.append(taiwan_fallback)
+    if special_region_features:
+        features.extend(special_region_features)
 
     return {"geojson": {"type": "FeatureCollection", "features": features}}
 
@@ -200,55 +215,55 @@ def _pick_admin_key_column(columns) -> str | None:
     return None
 
 
-def _build_taiwan_fallback_feature(species: str, locations: list[dict], normalized_level: str) -> dict | None:
+def _build_special_region_fallback_features(
+    province_geojson: dict | None,
+    province_counts: dict[str, int],
+    normalized_level: str,
+) -> list[dict]:
     if normalized_level not in {"city", "district"}:
-        return None
-
-    province_geojson = _load_admin_geojson("province")
+        return []
     if not province_geojson:
-        return None
+        return []
 
-    taiwan_feature = None
-    for feature in province_geojson.get("features", []):
-        props = feature.get("properties", {})
-        adcode = str(props.get("adcode") or props.get("id") or "")
-        name = str(props.get("name") or "")
-        if adcode == "710000" or name == "台湾省":
-            taiwan_feature = feature
-            break
-
-    if not taiwan_feature:
-        return None
-
-    if not locations:
-        count = 0
-    else:
-        df = pd.DataFrame(locations)
-        if df.empty or "longitude" not in df.columns or "latitude" not in df.columns:
-            count = 0
-        else:
-            valid_df = df[(df["longitude"].notna()) & (df["latitude"].notna())].copy()
-            if valid_df.empty:
-                count = 0
-            else:
-                geometry = [Point(xy) for xy in zip(valid_df["longitude"], valid_df["latitude"])]
-                points_gdf = gpd.GeoDataFrame(valid_df, geometry=geometry, crs="EPSG:4326")
-                province_gdf = gpd.GeoDataFrame.from_features([taiwan_feature])
-                province_gdf.set_crs(epsg=4326, inplace=True)
-                joined = gpd.sjoin(points_gdf, province_gdf, how="inner", predicate="within")
-                count = int(len(joined))
-
-    return {
-        "type": "Feature",
-        "geometry": _simplify_feature_geometry(taiwan_feature.get("geometry"), "province"),
-        "properties": {
-            **dict(taiwan_feature.get("properties", {})),
-            "count": count,
-            "name": f"{taiwan_feature.get('properties', {}).get('name', '台湾省')}（省级降级显示）",
-            "display_level": "province_fallback",
-            "source_level": normalized_level,
-        },
+    special_names = {
+        "710000": "台湾省",
+        "810000": "香港特别行政区",
+        "820000": "澳门特别行政区",
     }
+
+    features: list[dict] = []
+    for feature in province_geojson.get("features", []):
+        props = dict(feature.get("properties", {}))
+        adcode = str(props.get("adcode") or props.get("id") or "")
+        name = str(props.get("name") or props.get("NAME") or "")
+        if adcode not in special_names and name not in special_names.values():
+            continue
+
+        display_name = name or special_names.get(adcode, adcode)
+        count = province_counts.get(display_name, province_counts.get(display_name.replace("特别行政区", ""), 0))
+        if count <= 0:
+            continue
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": _simplify_feature_geometry(feature.get("geometry"), "province"),
+                "properties": {
+                    **props,
+                    "count": count,
+                    "name": f"{display_name}（省级降级显示）",
+                    "display_level": "province_fallback",
+                    "source_level": normalized_level,
+                },
+            }
+        )
+
+    return features
+
+
+def _is_special_region_province(value: str | None) -> bool:
+    normalized = str(value or "").strip()
+    return normalized in {"台湾省", "香港特别行政区", "澳门特别行政区", "香港", "澳门", "台湾", "臺灣省"}
 
 
 @lru_cache(maxsize=8)

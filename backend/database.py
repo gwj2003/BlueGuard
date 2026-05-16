@@ -6,7 +6,7 @@ import csv
 import threading
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import Session, sessionmaker
 
 from config import get_settings
@@ -49,7 +49,28 @@ def get_data_version() -> int:
 def init_db() -> None:
     get_settings().runtime_dir.mkdir(parents=True, exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    _ensure_species_distribution_admin_columns()
     print(f"数据库初始化完成: {DATABASE_URL}")
+
+
+def _ensure_species_distribution_admin_columns() -> None:
+    inspector = inspect(engine)
+    if "species_distribution" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("species_distribution")}
+    statements: list[str] = []
+    if "city" not in existing_columns:
+        statements.append("ALTER TABLE species_distribution ADD COLUMN city VARCHAR(50)")
+    if "district" not in existing_columns:
+        statements.append("ALTER TABLE species_distribution ADD COLUMN district VARCHAR(50)")
+
+    if not statements:
+        return
+
+    with engine.begin() as conn:
+        for statement in statements:
+            conn.exec_driver_sql(statement)
 
 
 def ensure_seed_data() -> int:
@@ -92,6 +113,8 @@ def ensure_seed_data() -> int:
                         "latitude": _safe_float(row.get("lat")),
                         "longitude": _safe_float(row.get("lng")),
                         "province": row.get("province"),
+                        "city": row.get("city"),
+                        "district": row.get("district"),
                         "region_code": row.get("region_code"),
                         "date": row.get("date"),
                         "dataset": row.get("dataset"),

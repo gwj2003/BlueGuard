@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from models import SpeciesDistribution
@@ -61,9 +61,38 @@ def list_locations_by_species(
             "longitude": row.longitude,
             "location_name": row.province or f"{row.latitude:.4f}, {row.longitude:.4f}",
             "year": row.year,
+            "province": row.province,
+            "city": row.city,
+            "district": row.district,
         }
         for row in results
     ]
+
+
+def count_locations_by_admin_field(
+    db: Session,
+    species: str,
+    admin_field: str,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
+    include_unknown: bool = True,
+) -> dict[str, int]:
+    if admin_field not in {"province", "city", "district"}:
+        return {}
+
+    field = getattr(SpeciesDistribution, admin_field)
+    query = db.query(field, func.count(SpeciesDistribution.id)).filter(
+        SpeciesDistribution.species_label == species,
+        field.isnot(None),
+        field != "",
+    )
+    query = _apply_year_filters(query, year_from, year_to, include_unknown)
+    rows = query.group_by(field).all()
+    return {
+        str(value): int(count)
+        for value, count in rows
+        if value is not None and str(value).strip()
+    }
 
 
 def bulk_insert_species_data(db: Session, rows: list[dict]) -> int:
@@ -83,6 +112,8 @@ def bulk_insert_species_data(db: Session, rows: list[dict]) -> int:
                 latitude=float(latitude),
                 longitude=float(longitude),
                 province=item.get("province"),
+                city=item.get("city"),
+                district=item.get("district"),
                 region_code=item.get("region_code"),
                 date=_parse_date(item.get("date")),
                 dataset=item.get("dataset"),
@@ -92,6 +123,28 @@ def bulk_insert_species_data(db: Session, rows: list[dict]) -> int:
         count += 1
     db.commit()
     return count
+
+
+def _apply_year_filters(query, year_from: Optional[int], year_to: Optional[int], include_unknown: bool):
+    has_year_filter = year_from is not None or year_to is not None
+    if not has_year_filter:
+        if include_unknown is False:
+            query = query.filter(SpeciesDistribution.year != None)
+        return query
+
+    clauses = []
+    if year_from is not None:
+        clauses.append(SpeciesDistribution.year >= int(year_from))
+    if year_to is not None:
+        clauses.append(SpeciesDistribution.year <= int(year_to))
+    range_filter = and_(*clauses) if clauses else None
+    if include_unknown:
+        if range_filter is not None:
+            query = query.filter(or_(range_filter, SpeciesDistribution.year == None))
+    else:
+        if range_filter is not None:
+            query = query.filter(range_filter)
+    return query
 
 
 def _parse_date(date_str: str | None) -> datetime | None:

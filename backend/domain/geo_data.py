@@ -175,3 +175,10 @@ def point_in_china(lon: float, lat: float) -> Optional[bool]:
             return bool(repaired.covers(point))
         except Exception:
             return None
+
+
+def preload_china_geo_cache() -> None:
+    """Warm the China boundary GeoJSON and derived caches in memory."""
+    load_china_geojson(force_reload=False)
+    get_china_gdf()
+    get_china_land_union()
