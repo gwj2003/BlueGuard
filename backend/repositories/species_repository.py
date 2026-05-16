@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, case
 from sqlalchemy.orm import Session
 
 from models import SpeciesDistribution
@@ -79,20 +79,36 @@ def count_locations_by_admin_field(
 ) -> dict[str, int]:
     if admin_field not in {"province", "city", "district"}:
         return {}
+    # For Hong Kong, Macau and Taiwan we always aggregate at province level
+    SPECIAL_PROVINCES = {"台湾省", "香港特别行政区", "澳门特别行政区"}
 
-    field = getattr(SpeciesDistribution, admin_field)
-    query = db.query(field, func.count(SpeciesDistribution.id)).filter(
+    if admin_field == "province":
+        field = getattr(SpeciesDistribution, "province")
+        group_expr = field
+    else:
+        # group by province for special provinces, otherwise by the requested field
+        field = getattr(SpeciesDistribution, admin_field)
+        group_expr = case(
+            (SpeciesDistribution.province.in_(list(SPECIAL_PROVINCES)), SpeciesDistribution.province),
+            else_=field,
+        )
+
+    query = db.query(group_expr, func.count(SpeciesDistribution.id)).filter(
         SpeciesDistribution.species_label == species,
-        field.isnot(None),
-        field != "",
+        group_expr != None,
+        group_expr != "",
     )
     query = _apply_year_filters(query, year_from, year_to, include_unknown)
-    rows = query.group_by(field).all()
-    return {
-        str(value): int(count)
-        for value, count in rows
-        if value is not None and str(value).strip()
-    }
+    rows = query.group_by(group_expr).all()
+    result: dict[str, int] = {}
+    for value, count in rows:
+        if value is None:
+            continue
+        s = str(value).strip()
+        if not s:
+            continue
+        result[s] = int(count)
+    return result
 
 
 def bulk_insert_species_data(db: Session, rows: list[dict]) -> int:
