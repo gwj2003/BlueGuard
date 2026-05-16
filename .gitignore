@@ -47,3 +47,4 @@ backend/blueguard/
 *.db
 *.sqlite
 build/
+backend/data.zip

@@ -82,7 +82,7 @@ MANUAL_STRUCTURED_SCHEMA = {
             {"start": "Species", "type": "AFFECTS", "end": "Region"},
             {"start": "Event", "type": "AFFECTS", "end": "Target"},
             {"start": "Event", "type": "AFFECTS", "end": "Region"},
-            {"start": "Control", "type": "MITIGATES", "end": "Species"}, 
+            {"start": "Species", "type": "MITIGATES", "end": "Control"}, 
             {"start": "Control", "type": "MITIGATES", "end": "Impact"},
             {"start": "Control", "type": "MITIGATES", "end": "Event"},
             {"start": "Event", "type": "DURING", "end": "TimePeriod"},
@@ -198,7 +198,7 @@ def _build_chain():
               - 查入侵史、事件、治理行动时优先用 Species-[:HAS_EVENT]->(Event)，再从 Event 继续查 DURING / AFTER / CAUSES / MITIGATES。
               - 查省市区层级时，可以补充使用 District-[:LOCATED_IN]->City、City-[:LOCATED_IN]->Province。
               - 查区域扩散时优先用 Region-[:SPREAD_RISK_TO]->Region 或 Region-[:CONTAINS]->Region。
-              - 查防治手段时优先用 Control-[:MITIGATES]->(Species/Event/Impact)。
+              - 查防治手段时优先用 Species-[:MITIGATES]->(Control/Event/Impact)。
               - 查引入途径、生境、别名、分类、危害时分别使用 INTRODUCED_VIA、THRIVES_IN、HAS_ALIAS、BELONGS_TO、CAUSES/AFFECTS/PREYS_ON/COMPETES_WITH。
                     6. 如果问题涉及事件、时间或空间泛指词，优先按 Event / Region / TimePeriod 处理，不要强行映射到 Province。
                     7. 只输出纯粹的 Cypher 代码，不要任何 Markdown 格式或多余解释。

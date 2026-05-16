@@ -57,7 +57,7 @@ REL_TO_LABEL_MAP = {
     
     # 👇 新增：因果关系
     "LEADS_TO": "Event",
-    "MITIGATES": "Event", 
+    "MITIGATES": "Control", 
     "AFFECTS": "Target", 
     
     # 👇 新增：时间关系
