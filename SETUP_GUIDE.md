@@ -46,6 +46,7 @@
 
 1. 复制 `backend/.env.example` 为 `backend/.env`，并填写至少下面几项：
    - `OPENAI_API_KEY`
+   - `AMAP_KEY`
    - `NEO4J_URI`
    - `NEO4J_USERNAME`
    - `NEO4J_PASSWORD`

@@ -1,4 +1,10 @@
-"""Geocoding service helpers."""
+"""Geocoding service helpers.
+
+This service uses AMap (高德) as the sole geocoding provider.
+
+Set `AMAP_KEY` via environment or `.env` to enable AMap. If `AMAP_KEY` is not configured
+the service will return an explicit HTTP error indicating that geocoding is unavailable.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +14,8 @@ from typing import Any
 
 import requests
 from fastapi import HTTPException
+
+from config import get_settings
 
 
 class GeocodingService:
@@ -30,19 +38,30 @@ class GeocodingService:
         if cached is not None:
             return cached
 
-        payload = self._request_json(
-            "https://nominatim.openstreetmap.org/search",
-            params={"q": normalized, "format": "json", "limit": 1},
-        )
-        if not payload:
-            raise HTTPException(status_code=404, detail="无法找到地址")
+        # Only use AMap. If key is not configured, return explicit error.
+        if not (hasattr(self, "_amap_key") and self._amap_key):
+            raise HTTPException(status_code=503, detail="未配置 AMAP_KEY，无法进行地理编码")
 
-        first = payload[0]
-        result = {
-            "lat": float(first["lat"]),
-            "lon": float(first["lon"]),
-            "display_name": first.get("display_name", ""),
-        }
+        params = {"address": normalized, "key": self._amap_key, "output": "json", "offset": 0}
+        payload = self._request_json("https://restapi.amap.com/v3/geocode/geo", params=params)
+        # AMap returns status: '1' for success, '0' for failure
+        if not isinstance(payload, dict) or str(payload.get('status')) != '1':
+            info = payload.get('info') if isinstance(payload, dict) else None
+            infocode = payload.get('infocode') if isinstance(payload, dict) else None
+            raise HTTPException(status_code=502, detail=f"AMap 地理编码失败: {info or 'unknown'} ({infocode or ''})")
+        geocodes = payload.get("geocodes")
+        if not geocodes:
+            raise HTTPException(status_code=404, detail="无法找到地址（AMap）")
+        first = geocodes[0]
+        # AMap 返回 location 字段格式为 "lon,lat"
+        loc = first.get("location", "")
+        lon_str, lat_str = (loc.split(",") + [""])[:2]
+        try:
+            lon_v = float(lon_str)
+            lat_v = float(lat_str)
+        except ValueError:
+            raise HTTPException(status_code=502, detail="地理编码返回了无效坐标（AMap）")
+        result = {"lat": lat_v, "lon": lon_v, "display_name": first.get("formatted_address", "")}
         self._set_cache(self._forward_cache, normalized, result)
         return result
 
@@ -51,12 +70,22 @@ class GeocodingService:
         cached = self._get_cache(self._reverse_cache, cache_key)
         if cached is not None:
             return cached
+        # Only use AMap. If key is not configured, return explicit error.
+        if not (hasattr(self, "_amap_key") and self._amap_key):
+            raise HTTPException(status_code=503, detail="未配置 AMAP_KEY，无法进行逆向地理编码")
 
-        payload = self._request_json(
-            "https://nominatim.openstreetmap.org/reverse",
-            params={"lat": lat, "lon": lon, "format": "json"},
-        )
-        result = {"address": payload.get("display_name", "")}
+        # AMap expects location as lon,lat
+        params = {"location": f"{lon},{lat}", "key": self._amap_key, "output": "json", "extensions": "all"}
+        payload = self._request_json("https://restapi.amap.com/v3/geocode/regeo", params=params)
+        if not isinstance(payload, dict) or str(payload.get('status')) != '1':
+            info = payload.get('info') if isinstance(payload, dict) else None
+            infocode = payload.get('infocode') if isinstance(payload, dict) else None
+            raise HTTPException(status_code=502, detail=f"AMap 逆向地理编码失败: {info or 'unknown'} ({infocode or ''})")
+        regeocode = payload.get("regeocode")
+        address = ""
+        if regeocode:
+            address = regeocode.get("formatted_address", "")
+        result = {"address": address}
         self._set_cache(self._reverse_cache, cache_key, result)
         return result
 
@@ -97,3 +126,10 @@ class GeocodingService:
 
 
 geocoding_service = GeocodingService()
+
+# initialize provider settings from application config
+_settings = get_settings()
+if getattr(_settings, "amap_key", None):
+    # prefer AMap when configured
+    geocoding_service._amap_key = _settings.amap_key
+    # AMap key configured

@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     openai_api_base: str = "https://api.deepseek.com"
     llm_model: str = "deepseek-chat"
 
+    # 高德（AMap）地理编码配置
+    # 优先使用环境变量 `AMAP_KEY`来提供高德开发者 Key。
+    amap_key: str = Field(default="", validation_alias=AliasChoices("AMAP_KEY"))
     admin_api_key: str = ""
 
     qa_cache_max_entries: int = 256
