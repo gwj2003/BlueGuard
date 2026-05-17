@@ -305,7 +305,11 @@ def _build_areacity_csv_geojson(level: str) -> dict | None:
     if target_deep is None:
         return None
 
-    records: list[dict] = []
+    cache_path = _get_areacity_cache_path(level)
+    tmp_cache_path = cache_path.with_suffix(cache_path.suffix + ".tmp")
+    source_mtime = csv_path.stat().st_mtime
+    level_name = _deep_to_level_name(target_deep)
+
     try:
         reader = pd.read_csv(
             csv_path,
@@ -318,48 +322,80 @@ def _build_areacity_csv_geojson(level: str) -> dict | None:
         print(f"读取 ok_geo.csv 失败: {e}")
         return None
 
-    for chunk in reader:
-        filtered = chunk[chunk["deep"] == target_deep].copy()
-        if filtered.empty:
-            continue
+    feature_count = 0
+    first_feature = True
+    try:
+        tmp_cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with tmp_cache_path.open("w", encoding="utf-8") as fp:
+            header = {
+                "source": str(csv_path),
+                "source_mtime": source_mtime,
+                "cache_version": _AREACITY_CACHE_VERSION,
+                "level": level,
+            }
+            fp.write('{"type":"FeatureCollection","metadata":')
+            fp.write(json.dumps(header, ensure_ascii=False, separators=(",", ":")))
+            fp.write(',"features":[')
 
-        for row in filtered.itertuples(index=False):
-            geometry = _parse_areacity_polygon(getattr(row, "polygon", None))
-            if geometry is None or geometry.is_empty:
-                continue
+            for chunk in reader:
+                filtered = chunk[chunk["deep"] == target_deep]
+                if filtered.empty:
+                    continue
 
-            level_name = _deep_to_level_name(int(getattr(row, "deep", target_deep)))
-            records.append(
-                {
-                    "type": "Feature",
-                    "geometry": mapping(geometry),
-                    "properties": {
-                        "id": str(getattr(row, "id", "") or ""),
-                        "pid": str(getattr(row, "pid", "") or ""),
-                        "deep": int(getattr(row, "deep", target_deep)),
-                        "level": level_name,
-                        "name": str(getattr(row, "name", "") or ""),
-                        "ext_path": str(getattr(row, "ext_path", "") or ""),
-                        "geo": str(getattr(row, "geo", "") or ""),
-                    },
-                }
-            )
+                for row in filtered.itertuples(index=False):
+                    geometry = _parse_areacity_polygon(getattr(row, "polygon", None))
+                    if geometry is None or geometry.is_empty:
+                        continue
 
-    if not records:
+                    feature = {
+                        "type": "Feature",
+                        "geometry": mapping(geometry),
+                        "properties": {
+                            "id": str(getattr(row, "id", "") or ""),
+                            "pid": str(getattr(row, "pid", "") or ""),
+                            "deep": int(getattr(row, "deep", target_deep)),
+                            "level": level_name,
+                            "name": str(getattr(row, "name", "") or ""),
+                            "ext_path": str(getattr(row, "ext_path", "") or ""),
+                            "geo": str(getattr(row, "geo", "") or ""),
+                        },
+                    }
+                    if not first_feature:
+                        fp.write(",")
+                    fp.write(json.dumps(feature, ensure_ascii=False, separators=(",", ":")))
+                    first_feature = False
+                    feature_count += 1
+
+            fp.write("]}")
+
+        if feature_count <= 0:
+            try:
+                tmp_cache_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return None
+
+        tmp_cache_path.replace(cache_path)
+    except Exception as e:
+        try:
+            tmp_cache_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        print(f"构建行政区缓存失败(level={level}): {e}")
         return None
 
-    payload = {
+    return {
         "type": "FeatureCollection",
         "metadata": {
             "source": str(csv_path),
-            "source_mtime": csv_path.stat().st_mtime,
+            "source_mtime": source_mtime,
             "cache_version": _AREACITY_CACHE_VERSION,
             "level": level,
+            "feature_count": feature_count,
+            "cache_path": str(cache_path),
         },
-        "features": records,
+        "features": [],
     }
-    _write_json_file(_get_areacity_cache_path(level), payload)
-    return payload
 
 
 def _load_areacity_csv_geojson(level: str) -> dict | None:

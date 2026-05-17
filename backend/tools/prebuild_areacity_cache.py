@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import sys
 from pathlib import Path
 
@@ -16,8 +17,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="预生成 AreaCity_ok_geo 的行政区缓存")
     parser.add_argument(
         "--levels",
-        default="city,district",
-        help="要预生成的级别，逗号分隔，默认 city,district",
+        default="city",
+        help="要预生成的级别，逗号分隔，默认 city（建议 city 和 district 分两次执行）",
     )
     args = parser.parse_args()
 
@@ -36,6 +37,7 @@ def main() -> int:
         payload = _build_areacity_csv_geojson(level)
         result[level] = payload is not None
         print(f"  {level}: {'OK' if result[level] else 'FAILED'}")
+        gc.collect()
     return 0 if all(result.values()) else 1
 
 
