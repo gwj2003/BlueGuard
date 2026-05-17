@@ -19,6 +19,7 @@ from repositories.species_repository import count_locations_by_admin_field, list
 
 
 _ADMIN_AREA_CACHE: dict[tuple[str, str, int], dict] = {}
+_AREACITY_CACHE_VERSION = 1
 
 
 def preload_admin_geojson_cache(levels: tuple[str, ...] = ("province", "city", "district")) -> dict[str, bool]:
@@ -109,23 +110,8 @@ def _build_admin_area_data(
         gdf_map.set_crs(epsg=4326, inplace=True)
 
     dist = count_locations_by_admin_field(db, species, normalized_level, year_from, year_to, include_unknown)
-    locations = None
     province_counts = count_locations_by_admin_field(db, species, "province", year_from, year_to, include_unknown)
     special_region_features = _build_special_region_fallback_features(province_geojson=admin_geojson if normalized_level == "province" else _load_admin_geojson("province"), province_counts=province_counts, normalized_level=normalized_level)
-
-    if not dist:
-        locations = list_locations_by_species(db, species, None, year_from, year_to, include_unknown)
-        if not gdf_map.empty and locations:
-            locations = [loc for loc in locations if not _is_special_region_province(loc.get("province"))]
-        if not gdf_map.empty and locations:
-            df = pd.DataFrame(locations)
-            if not df.empty and "longitude" in df.columns and "latitude" in df.columns:
-                geometry = [Point(xy) for xy in zip(df["longitude"], df["latitude"])]
-                points_gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
-                joined = gpd.sjoin(points_gdf, gdf_map, how="inner", predicate="within")
-                key_col = _pick_admin_key_column(joined.columns)
-                if key_col is not None:
-                    dist = {str(key): int(count) for key, count in joined[key_col].value_counts().items()}
 
     features = []
     for feature in admin_geojson.get("features", []):
@@ -310,7 +296,7 @@ def _load_admin_geojson(level: str) -> dict | None:
     return None
 
 
-def _load_areacity_csv_geojson(level: str) -> dict | None:
+def _build_areacity_csv_geojson(level: str) -> dict | None:
     csv_path = get_settings().data_dir / "AreaCity_ok_geo" / "ok_geo.csv"
     if not csv_path.is_file():
         return None
@@ -328,7 +314,8 @@ def _load_areacity_csv_geojson(level: str) -> dict | None:
             chunksize=5000,
             dtype={"id": "string", "pid": "string", "deep": "Int64", "name": "string", "ext_path": "string", "geo": "string", "polygon": "string"},
         )
-    except Exception:
+    except Exception as e:
+        print(f"读取 ok_geo.csv 失败: {e}")
         return None
 
     for chunk in reader:
@@ -361,7 +348,40 @@ def _load_areacity_csv_geojson(level: str) -> dict | None:
     if not records:
         return None
 
-    return {"type": "FeatureCollection", "features": records}
+    payload = {
+        "type": "FeatureCollection",
+        "metadata": {
+            "source": str(csv_path),
+            "source_mtime": csv_path.stat().st_mtime,
+            "cache_version": _AREACITY_CACHE_VERSION,
+            "level": level,
+        },
+        "features": records,
+    }
+    _write_json_file(_get_areacity_cache_path(level), payload)
+    return payload
+
+
+def _load_areacity_csv_geojson(level: str) -> dict | None:
+    csv_path = get_settings().data_dir / "AreaCity_ok_geo" / "ok_geo.csv"
+    if not csv_path.is_file():
+        return None
+
+    target_deep = _admin_level_to_deep(level)
+    if target_deep is None:
+        return None
+
+    cache_path = _get_areacity_cache_path(level)
+    if cache_path.is_file():
+        try:
+            cached = _read_json_file(cache_path)
+            if cached and cached.get("type") == "FeatureCollection":
+                return cached
+        except Exception:
+            pass
+
+    print(f"行政区缓存不存在: {cache_path}，请先运行 prebuild_areacity_cache.py 预生成。")
+    return None
 
 
 def _admin_level_to_deep(level: str) -> int | None:
@@ -475,6 +495,25 @@ def _read_json_file(path: Path) -> dict | None:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
+
+
+def _get_areacity_cache_dir() -> Path:
+    return get_settings().data_dir / "AreaCity_ok_geo" / "cache"
+
+
+def _get_areacity_cache_path(level: str) -> Path:
+    normalized = _normalize_admin_level(level)
+    return _get_areacity_cache_dir() / f"{normalized}.geojson"
+
+
+def _write_json_file(path: Path, payload: dict) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_suffix(path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        tmp_path.replace(path)
+    except Exception as e:
+        print(f"写入行政区缓存失败: {e}")
 
 
 
