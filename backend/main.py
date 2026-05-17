@@ -1,5 +1,4 @@
 import re
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -8,11 +7,7 @@ from api.errors import register_exception_handlers
 from api.router import api_router
 from config import get_settings
 from database import ensure_seed_data
-import threading
-import time
-
 from domain.geo_data import preload_china_geo_cache
-from services.analytics import preload_admin_geojson_cache
 
 
 def _wildcard_origin_to_regex(origin: str) -> str:
@@ -56,36 +51,8 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def _startup() -> None:
         settings.runtime_dir.mkdir(parents=True, exist_ok=True)
-        # 立即预热中国省界与衍生几何，减轻首次点查的开销
+        # 仅预热中国省界与衍生几何，避免启动时额外加载市/区级缓存
         preload_china_geo_cache()
-
-        # 后台缓慢预热行政区 GeoJSON（province/city/district），避免在启动期间占满内存
-        def _background_admin_preload():
-            try:
-                # 先短延迟，再分阶段加载，降低启动瞬时压力
-                time.sleep(5)
-                try:
-                    preload_admin_geojson_cache(levels=("province",))
-                except Exception as e:
-                    print(f"后台预热省级行政区失败: {e}")
-
-                # 稍后加载市级，再更晚加载区县级
-                time.sleep(10)
-                try:
-                    preload_admin_geojson_cache(levels=("city",))
-                except Exception as e:
-                    print(f"后台预热市级行政区失败: {e}")
-
-                time.sleep(20)
-                try:
-                    preload_admin_geojson_cache(levels=("district",))
-                except Exception as e:
-                    print(f"后台预热区县级行政区失败: {e}")
-            except Exception as e:
-                print(f"后台行政区分阶段预热出现异常: {e}")
-
-        thread = threading.Thread(target=_background_admin_preload, daemon=True)
-        thread.start()
         ensure_seed_data()
 
     @app.get("/")
