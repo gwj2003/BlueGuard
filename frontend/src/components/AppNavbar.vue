@@ -54,11 +54,11 @@ function sectionClass() {
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" :class="sectionClass()" :href="sectionHref('projects')" id="projectsDropdown" role="button" aria-haspopup="true" aria-expanded="false">核心功能</a>
           <div class="dropdown-menu" aria-labelledby="projectsDropdown">
-            <a class="dropdown-item" href="basin-monitoring.html"><span class="item-text">流域监测项目</span></a>
+            <a class="dropdown-item" href="basin-monitoring.html"><span class="item-text">时空分布态势</span></a>
             <div class="dropdown-items-divide-hr"></div>
-            <a class="dropdown-item" href="knowledge-graph.html"><span class="item-text">知识图谱应用</span></a>
+            <a class="dropdown-item" href="knowledge-graph.html"><span class="item-text">图谱智能问答</span></a>
             <div class="dropdown-items-divide-hr"></div>
-            <a class="dropdown-item" href="mobile-monitoring.html"><span class="item-text">移动端监测</span></a>
+            <a class="dropdown-item" href="mobile-monitoring.html"><span class="item-text">众包灾情上报</span></a>
           </div>
         </li>
       </ul>

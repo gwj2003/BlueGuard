@@ -9,9 +9,9 @@
               <i class="fas fa-binoculars fa-stack-1x"></i>
             </span>
             <div class="card-body">
-              <h4 class="card-title">全域监测采集</h4>
+              <h4 class="card-title">全域监测与数据融合</h4>
               <p>
-                整合多源监测数据，实现全国水域水生入侵生物分布、数量、点位统一采集与标准化管理
+                整合文献公报与众包网络，打破生态数据孤岛。实现全国水域入侵物种空间点位、发生频次与溯源途径的标准化采集与一体化治理，构建鲜活的时空数据库。
               </p>
             </div>
           </div>
@@ -22,9 +22,9 @@
               <i class="fas fa-list-alt fa-stack-1x"></i>
             </span>
             <div class="card-body">
-              <h4 class="card-title">智能分析处理</h4>
+              <h4 class="card-title">图谱驱动与时空挖掘</h4>
               <p>
-                基于地理信息与知识图谱技术，实现物种关联、传播路径、风险等级的自动化分析与挖掘
+                跨越传统静态属性查询的局限，深度融合 Neo4j 知识图谱与 WebGIS 渲染引擎。将离散的非结构化文献转化为标准的生态网络，直观展示物种的空间分布格局、时序演变过程及其生态语义关联，实现海量数据的可视化感知。
               </p>
             </div>
           </div>
@@ -35,9 +35,9 @@
               <i class="fas fa-chart-pie fa-stack-1x"></i>
             </span>
             <div class="card-body">
-              <h4 class="card-title">防控决策支持</h4>
+              <h4 class="card-title">智能问答与科学决策</h4>
               <p>
-                为管理部门、科研机构提供可视化报告、智能问答、风险预警，支撑精准防控与科学治理
+                面向管理与科研场景，提供基于大模型的高置信度智能问答、多维空间态势研判与风险预警服务，构筑从“被动响应”到“精准防控”的智能化决策闭环。
               </p>
             </div>
           </div>

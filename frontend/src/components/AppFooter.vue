@@ -15,18 +15,18 @@
             <h4>平台链接</h4>
             <ul class="list-unstyled li-space-lg white">
               <li><a class="white" href="index.html">平台首页</a></li>
-              <li><a class="white" href="basin-monitoring.html">流域监测</a></li>
-              <li><a class="white" href="knowledge-graph.html">知识图谱应用</a></li>
-              <li><a class="white" href="mobile-monitoring.html">移动端监测</a></li>
+              <li><a class="white" href="basin-monitoring.html">时空分布态势</a></li>
+              <li><a class="white" href="knowledge-graph.html">图谱智能问答</a></li>
+              <li><a class="white" href="mobile-monitoring.html">众包灾情上报</a></li>
             </ul>
           </div>
         </div>
         <div class="col-md-3">
           <div class="text-container contact">
             <h4>联系我们</h4>
-            <p><i class="fas fa-map-marker-alt"></i>&nbsp;南京市栖霞区文苑路9号</p>
-            <p><i class="fas fa-phone"></i>&nbsp;<a href="tel:+8613913765432">+86 139 1376 5432</a></p>
-            <p><i class="fas fa-envelope"></i>&nbsp;<a href="mailto:office@aria.com">b22100628@njupt.edu.cn</a></p>
+            <p class="white"><i class="fas fa-map-marker-alt"></i>&nbsp;南京市栖霞区文苑路9号</p>
+            <p class="white"><i class="fas fa-phone"></i>&nbsp;<a class="white" href="tel:+8613913765432">+86 139 1376 5432</a></p>
+            <p class="white"><i class="fas fa-envelope"></i>&nbsp;<a class="white" href="mailto:office@aria.com">b22100628@njupt.edu.cn</a></p>
           </div>
         </div>
       </div>

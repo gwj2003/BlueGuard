@@ -60,9 +60,9 @@ backend/
 ```text
 frontend/
 ├── index.html              # 首页 HTML 入口
-├── basin-monitoring.html   # 流域监测项目页入口
-├── knowledge-graph.html    # 知识图谱应用页入口
-├── mobile-monitoring.html  # 移动端监测页入口
+├── basin-monitoring.html   # 时空分布态势页入口
+├── knowledge-graph.html    # 图谱智能问答页入口
+├── mobile-monitoring.html  # 众包灾情上报页入口
 ├── vite.config.js          # Vite 构建、入口页、别名和代理配置
 ├── package.json            # 前端依赖、脚本和项目元数据
 ├── public/                 # 静态资源（含 legacy 依赖脚本）

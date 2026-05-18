@@ -24,12 +24,12 @@ onMounted(() => {
               role="button"
             >
               <span class="circle-numbering">1</span
-              ><span class="accordion-title">平台如何解决行业痛点</span>
+              ><span class="accordion-title">打破数据孤岛与事实幻觉</span>
             </span>
           </div>
           <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordionOne">
             <div class="accordion-body">
-              平台解决传统监测数据分散、可视化弱、知识孤立等问题，实现监测—分析—决策全流程智能化，大幅提升工作效率。
+              针对传统生态数据异构分散、静态制图维度单一以及通用大模型易产生“知识幻觉”等核心痛点，平台打通了从众包采集、态势感知到防灾智答的全流程闭环，全面赋能科学治理。
             </div>
           </div>
         </div>
@@ -44,12 +44,12 @@ onMounted(() => {
               aria-controls="collapseTwo"
               role="button"
             >
-              <span class="circle-numbering">2</span><span class="accordion-title">前后端分离先进架构</span>
+              <span class="circle-numbering">2</span><span class="accordion-title">图-表混合双引擎与高并发服务</span>
             </span>
           </div>
           <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionOne">
             <div class="accordion-body">
-              采用 Vue3 + FastAPI 前后端分离架构，模块化、低耦合、易扩展，支持高并发地理数据处理与快速部署。
+              基于 Vue3 + FastAPI 现代化异步架构，底层创新融合“Neo4j图谱 + SQLite关系型”混合存储。既支持海量时空坐标的高帧率聚合渲染，又保障了复杂生态网络多跳检索的极速响应。
             </div>
           </div>
         </div>
@@ -64,12 +64,12 @@ onMounted(() => {
               aria-controls="collapseThree"
               role="button"
             >
-              <span class="circle-numbering">3</span><span class="accordion-title">多技术融合创新应用</span>
+              <span class="circle-numbering">3</span><span class="accordion-title">WebGIS + GraphRAG 双核驱动</span>
             </span>
           </div>
           <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordionOne">
             <div class="accordion-body">
-              融合地理信息、知识图谱、数据管理、智能问答，为水生入侵生物防控提供一站式技术支撑。
+              跨界融合 WebGIS 空间拓扑分析与图检索增强生成（GraphRAG）前沿技术。以时空知识图谱为底座，实现灾情演变的动态可视化与“零幻觉、全溯源”的智能化防灾决策支撑。
             </div>
           </div>
         </div>

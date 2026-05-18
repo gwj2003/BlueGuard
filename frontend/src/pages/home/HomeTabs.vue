@@ -55,31 +55,31 @@ onMounted(() => {
 
         <div class="tab-content" id="ariaTabsContent">
           <div class="tab-pane fade show active" id="tab-1" role="tabpanel" aria-labelledby="tab-1">
-            <h4>平台核心服务能力</h4>
-            <p>中国水生入侵生物智能化平台提供从数据采集到智能决策的全链条服务，覆盖科研、监测、管理全场景。</p>
+            <h4>核心服务：全链路生态辅助决策</h4>
+            <p>AquaSIG平台打通了从非结构化文献到结构化空间知识的全链路，覆盖生态监测、科研分析与渔政管理全场景。</p>
 
             <div class="progress-container">
-              <div class="title">地理可视化 100%</div>
+              <div class="title">WebGIS 时空动态演变感知 90%</div>
               <div class="progress">
                 <div
-                  class="progress-bar first"
+                  class="progress-bar third"
                   role="progressbar"
-                  aria-valuenow="0"
+                  aria-valuenow="90"
                   aria-valuemin="0"
                   aria-valuemax="100"
                 ></div>
               </div>
-              <div class="title">知识图谱服务 95%</div>
+              <div class="title">GraphRAG 零幻觉智能问答 90%</div>
               <div class="progress">
                 <div
-                  class="progress-bar second"
+                  class="progress-bar third"
                   role="progressbar"
-                  aria-valuenow="95"
+                  aria-valuenow="90"
                   aria-valuemin="0"
                   aria-valuemax="100"
                 ></div>
               </div>
-              <div class="title">数据智能分析 90%</div>
+              <div class="title">多源异构数据自动化抽取 90%</div>
               <div class="progress">
                 <div
                   class="progress-bar third"
@@ -96,54 +96,54 @@ onMounted(() => {
             <ul class="list-unstyled li-space-lg first">
               <li class="media">
                 <div class="media-bullet">1</div>
-                <div class="media-body"><strong>前后端分离</strong> 架构，高效稳定易扩展</div>
+                <div class="media-body"><strong>LLM 零样本抽取：</strong>依托大模型推理能力，实现非结构化生态文本的自动化建库。</div>
               </li>
               <li class="media">
                 <div class="media-bullet">2</div>
-                <div class="media-body"><strong>多库协同</strong> 存储，结构化+关联数据统一管理</div>
+                <div class="media-body"><strong>图-表混合双引擎：</strong>Neo4j + SQLite 协同持久化，实现图谱与关系数据的极速检索。</div>
               </li>
               <li class="media">
                 <div class="media-bullet">3</div>
-                <div class="media-body"><strong>轻量化部署</strong>，本地/公网快速上线使用</div>
+                <div class="media-body"><strong>现代化异步架构：</strong>基于 Vue 3 + FastAPI，保障空间数据与流式问答的高效响应。</div>
               </li>
             </ul>
             <ul class="list-unstyled li-space-lg last">
               <li class="media">
                 <div class="media-bullet">4</div>
-                <div class="media-body"><strong>地理信息+知识图谱</strong> 深度融合创新</div>
+                <div class="media-body"><strong>GraphRAG 增强生成：</strong>注入图谱确切事实，显著缓解大模型在垂直领域的“知识幻觉”。</div>
               </li>
               <li class="media">
                 <div class="media-bullet">5</div>
-                <div class="media-body"><strong>智能问答</strong> 降低使用门槛，支持自然语言查询</div>
+                <div class="media-body"><strong>海量空间坐标聚合：</strong>集成前端空间索引，突破 Web 端高密度散点的地图渲染瓶颈。</div>
               </li>
               <li class="media">
                 <div class="media-bullet">6</div>
-                <div class="media-body"><strong>安全可靠</strong>，具备完善权限与数据管控机制</div>
+                <div class="media-body"><strong>四元组本体设计：</strong>定制四元组生态本体，精准表达入侵物种的复杂时空演变网络。</div>
               </li>
             </ul>
           </div>
 
           <div class="tab-pane fade" id="tab-3" role="tabpanel" aria-labelledby="tab-3">
             <p>
-              <strong>平台全面服务</strong> 全国水生生物监测站、科研院所、生态环境管理部门，实现智能化升级。
+              <strong>多维赋能：</strong> 平台全面服务于各级渔政管理部门、科研院所及社会公众，实现水生生物监测体系的数智化升级。
             </p>
-            <p><strong>核心价值</strong> 提升监测效率、打破数据孤岛、支撑科学决策、守护水域生态安全。</p>
+            <p><strong>核心价值：</strong> 提升宏观监测效率、打破生态数据孤岛、支撑科学防灾决策、守护国家水域生物安全。</p>
             <ul class="list-unstyled li-space-lg">
               <li class="media">
                 <i class="fas fa-square"></i>
-                <div class="media-body">快速部署，开箱即用，降低技术使用门槛</div>
+                <div class="media-body"><strong>宏观决策支持：</strong>为渔政部门提供多级行政区划的灾情研判、热力聚集分析与扩散风险预警。</div>
               </li>
               <li class="media">
                 <i class="fas fa-square"></i>
-                <div class="media-body">提供标准化数据接口，支持系统对接扩展</div>
+                <div class="media-body"><strong>科研分析辅助：</strong>支撑生态学家的空间缓冲区评估、时空演变分析与生物多样性溯源。</div>
               </li>
               <li class="media">
                 <i class="fas fa-square"></i>
-                <div class="media-body">持续迭代优化，适配最新监测与管理需求</div>
+                <div class="media-body"><strong>公众生态科普：</strong>以“所查即所得”的自然语言问答交互，大幅降低专业防灾知识的获取门槛。</div>
               </li>
               <li class="media">
                 <i class="fas fa-square"></i>
-                <div class="media-body">提供专属技术支持与培训服务</div>
+                <div class="media-body"><strong>众包数据闭环：</strong>建立“公众发现-坐标上报-审核入库-图谱更新”的动态持续生态监测体系。</div>
               </li>
             </ul>
           </div>

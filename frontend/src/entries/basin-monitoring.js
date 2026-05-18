@@ -1,7 +1,7 @@
 import { mountCaseFeaturePage } from './mountCaseFeaturePage'
 
 mountCaseFeaturePage({
-    pageTitle: '流域监测项目',
+    pageTitle: '时空分布态势',
     pageDescription: '分布识别分析',
     featureType: 'species',
 })

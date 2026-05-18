@@ -14,21 +14,21 @@
               <img class="img-fluid" src="/images/services-1.jpg" alt="地理空间可视化" />
             </div>
             <div class="card-body">
-              <h3 class="card-title">地理空间可视化</h3>
+              <h3 class="card-title">动态时空制图与态势感知</h3>
               <p>
-                基于Leaflet地图引擎，实现全国水域入侵生物分布点位实时展示、图层叠加与空间查询
+                基于 Leaflet 引擎与空间拓扑算法（Spatial Join），实现海量入侵数据的动态图层渲染与多维时空参数交互过滤。
               </p>
               <ul class="list-unstyled li-space-lg">
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">全国水域分布一张图展示</div>
+                  <div class="media-body">多尺度时空动态专题图渲染</div>
                 </li>
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">自定义地理编码与坐标转换</div>
+                  <div class="media-body">高精度逆地理编码与空间分析</div>
                 </li>
               </ul>
-              <p class="price">面向<span>科研与管理</span>单位</p>
+              <p class="price">面向<span>科研分析与宏观辅助</span>决策</p>
             </div>
           </div>
 
@@ -37,21 +37,21 @@
               <img class="img-fluid" src="/images/services-2.jpg" alt="知识图谱智能服务" />
             </div>
             <div class="card-body">
-              <h3 class="card-title">知识图谱智能服务</h3>
+              <h3 class="card-title">图检索增强与生态智答</h3>
               <p>
-                构建水生入侵生物知识图谱，实现物种关系、危害等级、传播路径深度关联与智能问答
+                依托 Neo4j 时空知识底座与大语言模型推理，实现物种生态链的多跳深度关联与“零幻觉”事实检索
               </p>
               <ul class="list-unstyled li-space-lg">
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">Neo4j图谱存储与查询</div>
+                  <div class="media-body">复杂生态网络多维拓扑关联</div>
                 </li>
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">自然语言智能问答</div>
+                  <div class="media-body">基于 GraphRAG 的防灾溯源问答</div>
                 </li>
               </ul>
-              <p class="price">面向<span>科研与决策</span>场景</p>
+              <p class="price">面向<span>渔政管理与公众生态</span>科普</p>
             </div>
           </div>
 
@@ -60,21 +60,21 @@
               <img class="img-fluid" src="/images/services-3.jpg" alt="数据一体化管理" />
             </div>
             <div class="card-body">
-              <h3 class="card-title">数据一体化管理</h3>
+              <h3 class="card-title">混合存储与数据治理闭环</h3>
               <p>
-                结构化数据统一存储、查询、统计，支持批量导入、权限管理、报表导出，全流程数字化
+                采用“Neo4j 图谱 + SQLite 关系型”混合持久化架构，打通从离线知识抽取、在线众包上报到审核入库的数据生命周期。
               </p>
               <ul class="list-unstyled li-space-lg">
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">SQLite轻量高效存储</div>
+                  <div class="media-body">图-表混合双引擎高效并发检索</div>
                 </li>
                 <li class="media">
                   <i class="fas fa-square"></i>
-                  <div class="media-body">数据增删改查与安全管控</div>
+                  <div class="media-body">多源异构数据全流程资产化管控</div>
                 </li>
               </ul>
-              <p class="price">面向<span>监测与运维</span>人员</p>
+              <p class="price">面向<span>平台运维与数据治理人员</span>科普</p>
             </div>
           </div>
         </div>
