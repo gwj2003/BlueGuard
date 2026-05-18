@@ -1035,7 +1035,7 @@ screen and (-ms-high-contrast: none) {
 /*************************/
 .accordion .area-1 {
 	height: 27rem;
-	background: url('../images/details-1-background.jpg') center center no-repeat;
+	background: url('../images/medium.jpg') center center no-repeat;
 	background-size: cover;
 }
 
@@ -1225,7 +1225,7 @@ screen and (-ms-high-contrast: none) {
 
 .tabs .area-2 {
 	height: 27rem;
-	background: url('../images/details-2-background.jpg') center center no-repeat;
+	background: url('../images/original.jpg') center center no-repeat;
 	background-size: cover;
 }
 

@@ -11,7 +11,7 @@
         <div class="col-lg-12">
           <div class="card">
             <div class="card-image">
-              <img class="img-fluid" src="/images/services-1.jpg" alt="地理空间可视化" />
+              <img class="img-fluid" src="/images/Oreochromis-niloticus-Nairobi.jpg" alt="地理空间可视化" />
             </div>
             <div class="card-body">
               <h3 class="card-title">动态时空制图与态势感知</h3>
@@ -34,7 +34,7 @@
 
           <div class="card">
             <div class="card-image">
-              <img class="img-fluid" src="/images/services-2.jpg" alt="知识图谱智能服务" />
+              <img class="img-fluid" src="/images/Atractosteus_spatula_2.jpg" alt="知识图谱智能服务" />
             </div>
             <div class="card-body">
               <h3 class="card-title">图检索增强与生态智答</h3>
@@ -57,7 +57,7 @@
 
           <div class="card">
             <div class="card-image">
-              <img class="img-fluid" src="/images/services-3.jpg" alt="数据一体化管理" />
+              <img class="img-fluid" src="/images/2025022811525633.jpg" alt="数据一体化管理" />
             </div>
             <div class="card-body">
               <h3 class="card-title">混合存储与数据治理闭环</h3>

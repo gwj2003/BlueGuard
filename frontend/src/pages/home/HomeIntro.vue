@@ -15,7 +15,7 @@
         </div>
         <div class="col-lg-7">
           <div class="image-container">
-            <img class="img-fluid" src="/images/intro-office.jpg" alt="平台介绍配图" />
+            <img class="img-fluid" src="/images/Achatina_fulica_Thailand.jpg" alt="平台介绍配图" />
           </div>
         </div>
       </div>
