@@ -137,13 +137,98 @@ export const useSpeciesMap = (activeTab) => {
         }
     }
 
-    const getColor = (d) => {
-        return d > 50 ? '#800026' :
-            d > 20 ? '#BD0026' :
-                d > 10 ? '#E31A1C' :
-                    d > 5 ? '#FC4E2A' :
-                        d > 2 ? '#FD8D3C' :
-                            '#FEB24C'
+    const CHOROPLETH_COLORS = ['#FEB24C', '#FD8D3C', '#FC4E2A', '#E31A1C', '#BD0026', '#800026']
+
+    const buildNaturalBreaks = (values, maxClasses = CHOROPLETH_COLORS.length) => {
+        const sorted = values
+            .map((value) => Number(value))
+            .filter((value) => Number.isFinite(value) && value > 0)
+            .sort((a, b) => a - b)
+
+        if (!sorted.length) return []
+
+        const uniqueValues = [...new Set(sorted)]
+        if (uniqueValues.length === 1) {
+            return [uniqueValues[0], uniqueValues[0]]
+        }
+
+        const classCount = Math.min(maxClasses, uniqueValues.length)
+        const lowerClassLimits = Array.from({ length: sorted.length + 1 }, () => Array(classCount + 1).fill(0))
+        const varianceCombinations = Array.from({ length: sorted.length + 1 }, () => Array(classCount + 1).fill(Infinity))
+
+        for (let i = 1; i <= classCount; i += 1) {
+            lowerClassLimits[1][i] = 1
+            varianceCombinations[1][i] = 0
+        }
+
+        for (let l = 2; l <= sorted.length; l += 1) {
+            let sum = 0
+            let sumSquares = 0
+            let weight = 0
+            let variance = 0
+
+            for (let m = 1; m <= l; m += 1) {
+                const lowerClassLimit = l - m + 1
+                const value = sorted[lowerClassLimit - 1]
+                weight += 1
+                sum += value
+                sumSquares += value * value
+                variance = sumSquares - (sum * sum) / weight
+
+                const previousClassLimit = lowerClassLimit - 1
+                if (previousClassLimit === 0) continue
+
+                for (let j = 2; j <= classCount; j += 1) {
+                    const nextVariance = variance + varianceCombinations[previousClassLimit][j - 1]
+                    if (varianceCombinations[l][j] >= nextVariance) {
+                        lowerClassLimits[l][j] = lowerClassLimit
+                        varianceCombinations[l][j] = nextVariance
+                    }
+                }
+            }
+
+            lowerClassLimits[l][1] = 1
+            varianceCombinations[l][1] = variance
+        }
+
+        const breaks = Array(classCount + 1).fill(0)
+        breaks[0] = sorted[0]
+        breaks[classCount] = sorted[sorted.length - 1]
+
+        let k = sorted.length
+        for (let j = classCount; j > 1; j -= 1) {
+            const breakIndex = Math.max(0, lowerClassLimits[k][j] - 2)
+            breaks[j - 1] = sorted[breakIndex]
+            k = lowerClassLimits[k][j] - 1
+        }
+
+        return breaks
+    }
+
+    const getClassColor = (classIndex, classCount) => {
+        if (classCount <= 1) return CHOROPLETH_COLORS[0]
+        const paletteIndex = Math.round((classIndex / (classCount - 1)) * (CHOROPLETH_COLORS.length - 1))
+        return CHOROPLETH_COLORS[paletteIndex]
+    }
+
+    const createNaturalBreaksClassifier = (features = []) => {
+        const counts = features.map((feature) => Number(feature?.properties?.count || 0))
+        const breaks = buildNaturalBreaks(counts)
+        const classCount = Math.max(1, breaks.length - 1)
+
+        return (value) => {
+            const count = Number(value || 0)
+            if (!Number.isFinite(count) || count <= 0) return '#f4f4f4'
+            if (breaks.length <= 2) return getClassColor(0, classCount)
+
+            for (let i = 1; i < breaks.length; i += 1) {
+                if (count <= breaks[i]) {
+                    return getClassColor(i - 1, classCount)
+                }
+            }
+
+            return getClassColor(classCount - 1, classCount)
+        }
     }
 
     const loadProvinceData = async (token, speciesValue = selectedSpecies.value) => {
@@ -157,13 +242,14 @@ export const useSpeciesMap = (activeTab) => {
             params.include_unknown = includeUnknown.value
             const data = await getJson(`/province-data/${encodeURIComponent(speciesValue)}`, params)
             if (token !== renderToken || !['level', 'choropleth', 'province'].includes(selectedLayer.value)) return
+            const getNaturalBreakColor = createNaturalBreaksClassifier(data.geojson?.features || [])
             provinceLayer = L.geoJSON(data.geojson, {
                 renderer: adminGeoJsonRenderer,
                 smoothFactor: 1.0,
                 style: (feature) => {
                     const count = feature.properties.count
                     return {
-                        fillColor: count > 0 ? getColor(count) : '#f4f4f4',
+                        fillColor: getNaturalBreakColor(count),
                         weight: 1,
                         opacity: 1,
                         color: count > 0 ? 'white' : '#ddd',
