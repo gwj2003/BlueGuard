@@ -72,7 +72,8 @@ def ask_question(question: str, db: Session) -> dict:
 def get_suggestions(species: str) -> dict[str, list[str]]:
     return {
         "suggestions": [
-            f"介绍一下 {species}",
+            f"介绍一下{species} ",
+            f"{species} 的传播路径",
             f"{species} 的危害是什么？",
             f"如何防治 {species}？",
             f"{species} 属于什么分类？",

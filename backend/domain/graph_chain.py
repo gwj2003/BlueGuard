@@ -129,6 +129,15 @@ _neo4j_graph_instance: Optional[ReadOnlyNeo4jGraph] = None
 _llm: Optional[ChatOpenAI] = None
 
 
+SIMPLE_TEMPLATE_CYPHER = """
+MATCH (s:Species)
+WHERE toLower(s.name) CONTAINS toLower($needle)
+OPTIONAL MATCH (s)-[r]->(n)
+RETURN s.name AS species, type(r) AS rel_type, labels(n) AS nlabels, coalesce(n.name, '') AS related
+LIMIT 40
+"""
+
+
 def get_llm() -> ChatOpenAI:
     global _llm
     if _llm is None:
@@ -258,7 +267,68 @@ def get_chain(force_refresh: bool = False):
         _build_chain()
     return _chain
 
+
+def _extract_species_needle(question: str, gbif_names: list) -> Optional[str]:
+    q = (question or '').strip()
+    if len(q) > 200:
+        return None
+    if not re.search(r"(介绍|危害|防治|分类|原产地|是什么|什么是|哪种|如何|怎样|请问|查询|说说|讲讲)", q):
+        return None
+
+    names_sorted = sorted((name for name in gbif_names if name), key=len, reverse=True)
+    for name in names_sorted:
+        if name in q:
+            return name
+
+    fallback_patterns = [
+        r"(?:介绍一下|介绍下|介绍|什么是|请介绍|简述|说说|讲讲|了解一下)\s*[:：]?\s*([^\s，。！？?、:：]{2,20})",
+        r"(?:关于|针对|对于)\s*([^\s，。！？?、:：]{2,20})\s*(?:介绍|是什么|如何|危害|防治)",
+    ]
+    for pattern in fallback_patterns:
+        match = re.search(pattern, q)
+        if match:
+            candidate = match.group(1).strip()
+            if candidate:
+                return candidate
+    return None
+
+
+def try_simple_template_qa(question: str, gbif_names: list) -> Optional[dict]:
+    """命中简单模板时：1 次参数化 Cypher + 1 次 LLM 总结，跳过 Cypher 生成 LLM。"""
+    needle = _extract_species_needle(question, gbif_names)
+    if not needle:
+        return None
+
+    graph = get_neo4j_graph()
+    if graph is None:
+        return None
+
+    try:
+        rows = graph.query(SIMPLE_TEMPLATE_CYPHER.strip(), params={"needle": needle})
+    except Exception as exc:
+        print(f"simple template Cypher 失败: {exc}")
+        return None
+
+    if not rows:
+        return None
+
+    llm = get_llm()
+    context = str(rows)[:8000]
+    prompt = (
+        "你是水生入侵生物专家。根据下列图谱查询结果回答用户问题；若信息不足请说明。\n"
+        f"图谱数据：\n{context}\n\n用户问题：{question}\n回答："
+    )
+    result = llm.invoke(prompt)
+    text = result.content if hasattr(result, "content") else str(result)
+    return {
+        "result": text,
+        "generated_cypher": SIMPLE_TEMPLATE_CYPHER.strip(),
+        "from_template": True,
+    }
+
 def invoke_qa(question: str, gbif_names: list) -> dict:
-    # 简化模板分支已移除：始终使用完整的 chain 流程以保证一致性和可扩展性
+    template_result = try_simple_template_qa(question, gbif_names)
+    if template_result:
+        return template_result
     chain = get_chain()
     return chain.invoke({"query": question})
