@@ -125,7 +125,7 @@ onMounted(() => {
 
           <div class="tab-pane fade" id="tab-3" role="tabpanel" aria-labelledby="tab-3">
             <p>
-              <strong>多维赋能：</strong> 平台全面服务于各级渔政管理部门、科研院所及社会公众，实现水生生物监测体系的数智化升级。
+              <strong>多维赋能：</strong> 平台全面服务于各级渔政管理部门、科研院所及社会公众，实现水生动物监测体系的数智化升级。
             </p>
             <p><strong>核心价值：</strong> 提升宏观监测效率、打破生态数据孤岛、支撑科学防灾决策、守护国家水域生物安全。</p>
             <ul class="list-unstyled li-space-lg">

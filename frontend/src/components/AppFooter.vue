@@ -4,9 +4,9 @@
       <div class="row">
         <div class="col-md-6">
           <div class="text-container about">
-            <h4>中国水生入侵生物智能化平台</h4>
+            <h4>中国水生入侵动物智能化平台</h4>
             <p class="white">
-              面向全国水域生态安全，提供水生入侵生物智能化监测、数据分析、知识服务与决策支撑，守护生物多样性与生态平衡。
+              面向全国水域生态安全，提供水生入侵动物智能化监测、数据分析、知识服务与决策支撑，守护生物多样性与生态平衡。
             </p>
           </div>
         </div>
@@ -37,7 +37,7 @@
     <div class="container">
       <div class="row">
         <div class="col-lg-12">
-          <p class="p-small">版权所有 &copy; 2025 中国水生入侵生物智能化监测与分析平台 保留所有权利。</p>
+          <p class="p-small">版权所有 &copy; 2025 中国水生入侵动物智能化监测与分析平台 保留所有权利。</p>
         </div>
       </div>
     </div>

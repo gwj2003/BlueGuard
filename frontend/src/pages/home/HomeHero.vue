@@ -17,10 +17,10 @@ onMounted(() => {
           <div class="col-lg-12">
             <div class="text-container">
               <h1>
-                中国水生生物 <span id="js-rotating">入侵检测, 科学防控</span>
+                中国水生动物 <span id="js-rotating">入侵检测, 科学防控</span>
               </h1>
               <p class="p-heading p-large">
-                构建全国领先的水生入侵生物智能化监测、分析与防控一体化平台
+                构建全国领先的水生入侵动物智能化监测、分析与防控一体化平台
               </p>
               <a class="btn-solid-lg page-scroll" href="#intro">了解平台</a>
             </div>

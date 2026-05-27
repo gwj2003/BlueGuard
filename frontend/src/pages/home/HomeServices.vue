@@ -4,7 +4,7 @@
       <div class="row">
         <div class="col-lg-12">
           <div class="section-title">平台特色</div>
-          <h2>全方位支撑水生入侵生物<br />智能化监测与管理</h2>
+          <h2>全方位支撑水生入侵动物<br />智能化监测与管理</h2>
         </div>
       </div>
       <div class="row">

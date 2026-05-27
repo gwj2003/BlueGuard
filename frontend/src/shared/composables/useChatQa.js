@@ -99,7 +99,7 @@ export const useChatQa = () => {
         {
             id: 0,
             role: 'assistant',
-            content: '你好！我是水生入侵生物科普助手，可以为您介绍各类入侵生物的分类、危害和防治方法。请问您想了解哪个物种？'
+            content: '你好！我是水生入侵动物科普助手，可以为您介绍各类入侵动物的分类、危害和防治方法。请问您想了解哪个物种？'
         }
     ])
     const isLoading = ref(false)
